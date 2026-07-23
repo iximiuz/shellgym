@@ -12,6 +12,9 @@ init:
       chown "$GYM_USER" "$HOME_DIR/secret.txt" "$HOME_DIR/greet.sh"
 tasks:
   lock_secret:
+    # The check's own poll loop runs up to ~50s before falling through to
+    # hint_exit; the attempt timeout must exceed that or the hint never fires.
+    timeout: 60
     check: |
       HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
       PERMS=""
@@ -28,6 +31,8 @@ tasks:
     solve: |
       chmod 600 ~/secret.txt
   run_greeter:
+    # wait_file blocks 45s before hint_exit; see lock_secret.
+    timeout: 60
     check: |
       HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
       wait_file --timeout 45 "$HOME_DIR/greet.done" || {

@@ -463,6 +463,32 @@ function refreshDebugSoon() {
 
 // ---------- websocket -------------------------------------------------------
 
+// Events published while the socket was down (daemon restart, network blip)
+// are gone for good - the bus has no replay. So on every (re)connect, re-pull
+// the authoritative state and re-apply it to whatever scene is on screen.
+async function resync() {
+  if (!state.path) return; // initial connect: boot() is already fetching everything
+  await refreshPath();
+  const unitId = currentUnitId();
+  if (unitId) {
+    try {
+      const unit = await fetchJSON(`/api/unit/${unitId}`);
+      state.unitTasks = unit.tasks || [];
+      for (const t of state.unitTasks) {
+        const box = taskBox(t.name);
+        if (!box) continue;
+        setTaskStatus(box, t.status);
+        if (isDone(t.status)) setTaskHint(box, '');
+        else if (t.hint) setTaskHint(box, t.hint);
+      }
+      refreshTaskBlocking(state.sceneEl);
+      if (unit.status === 'completed') state.sceneEl.classList.add('done');
+    } catch { /* scene fetch failed - live events will catch us up */ }
+  }
+  refreshCurrentSceneGating();
+  if (state.sceneEl?.classList.contains('finale-scene')) renderFinale(state.sceneEl);
+}
+
 function connectWS() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   const ws = new WebSocket(`${proto}://${location.host}/api/events`);
@@ -478,7 +504,10 @@ function connectWS() {
       case 'run': onRunEvent(ev.data); break;
     }
   };
-  ws.onopen = () => { $('#conn-banner').hidden = true; };
+  ws.onopen = () => {
+    $('#conn-banner').hidden = true;
+    resync().catch(() => {});
+  };
   ws.onclose = () => {
     $('#conn-banner').hidden = false;
     setTimeout(connectWS, 1500);

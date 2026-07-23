@@ -387,6 +387,31 @@ func TestFirstTaskCompletesIndividually(t *testing.T) {
 	}
 }
 
+// A (re)activation must announce every task's fresh status: after a reset,
+// a task box that was green in some connected UI gets no event until its
+// supervisor runs - which for needs-gated tasks may be never.
+func TestActivationAnnouncesFreshTaskStatuses(t *testing.T) {
+	te := newTestEnv(t, map[string]string{"010.m/010.chain/unit.md": chainUnit})
+	defer os.RemoveAll("/tmp/shellgym-chain")
+	_ = os.MkdirAll("/tmp/shellgym-chain", 0o755)
+
+	if err := te.eng.ActivateUnit("m/chain"); err != nil {
+		t.Fatal(err)
+	}
+	mustWrite(t, "/tmp/shellgym-chain/one", "x")
+	if !te.waitTaskStatus("m/chain", "first", StatusCompleted, 5*time.Second) {
+		t.Fatal("task 'first' did not complete")
+	}
+
+	_ = os.Remove("/tmp/shellgym-chain/one")
+	if err := te.eng.ResetUnit("m/chain"); err != nil {
+		t.Fatal(err)
+	}
+	if !te.waitTaskStatus("m/chain", "third", StatusPending, 5*time.Second) {
+		t.Fatal("re-activation did not announce needs-gated task 'third' as pending")
+	}
+}
+
 func TestStatePersistsAcrossEngineRestart(t *testing.T) {
 	units := map[string]string{"010.m/010.make-file/unit.md": fileUnit}
 	te := newTestEnv(t, units)

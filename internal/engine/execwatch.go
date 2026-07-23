@@ -162,6 +162,13 @@ func openProcConnector() (int, error) {
 		unix.Close(sock)
 		return -1, err
 	}
+	// Fork bursts (builds, package installs, parallel scripts) can outpace
+	// the reader; a roomy receive buffer makes overflow (ENOBUFS) rare.
+	// FORCE ignores rmem_max but needs CAP_NET_ADMIN - same capability the
+	// connector itself needs, so the fallback is mostly for tests.
+	if err := unix.SetsockoptInt(sock, unix.SOL_SOCKET, unix.SO_RCVBUFFORCE, 8<<20); err != nil {
+		_ = unix.SetsockoptInt(sock, unix.SOL_SOCKET, unix.SO_RCVBUF, 8<<20)
+	}
 	if err := sendProcListen(sock, procCnMcastListen); err != nil {
 		unix.Close(sock)
 		return -1, err
@@ -189,6 +196,7 @@ func (w *ExecWatcher) netlinkLoop(sock int) {
 	defer unix.Close(sock)
 	buf := make([]byte, 65536)
 	le := binary.LittleEndian
+	var lastOverflowLog time.Time
 	for {
 		w.mu.Lock()
 		closed := w.closed
@@ -199,6 +207,17 @@ func (w *ExecWatcher) netlinkLoop(sock int) {
 		n, _, err := unix.Recvfrom(sock, buf, 0)
 		if err != nil {
 			if err == unix.EINTR {
+				continue
+			}
+			if err == unix.ENOBUFS {
+				// The kernel dropped events because our receive buffer
+				// overflowed (fork burst). The socket is still healthy;
+				// events in the gap are lost, which wait_* checks absorb
+				// by re-polling - so keep reading, never disable.
+				if time.Since(lastOverflowLog) > time.Minute {
+					lastOverflowLog = time.Now()
+					log.Printf("execwatch: netlink overflow (ENOBUFS): some exec events were lost")
+				}
 				continue
 			}
 			log.Printf("execwatch: netlink read error: %v; exec-based checks disabled", err)

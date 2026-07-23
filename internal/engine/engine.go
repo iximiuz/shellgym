@@ -266,6 +266,10 @@ func (e *Engine) ActivateUnit(id string) error {
 				e.publishTask(id, t.Name, StatusCompleted)
 				continue
 			}
+			// Announce the fresh slate: after a reset, a task box that was
+			// green in some connected UI gets no event until its supervisor
+			// runs - which for needs-gated tasks may be never.
+			e.publishTask(id, t.Name, StatusPending)
 			e.wg.Add(1)
 			go func(t *content.Task) {
 				defer e.wg.Done()
