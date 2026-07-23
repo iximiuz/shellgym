@@ -1,0 +1,7 @@
+id: linux-101
+title: Linux Command Line 101
+description: >
+  Fundamental command-line skills trained one small rep at a time:
+  navigation, files, redirection, pipes, processes, signals, and basic
+  networking.
+shellUser: laborant

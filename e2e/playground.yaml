@@ -1,0 +1,74 @@
+kind: playground
+name: shellgym-e2e
+title: Shell Gym E2E
+description: >
+  Shell Gym trainer playground: a student terminal side by side with the
+  gym UI (port 63636). The daemon self-provisions on boot from the
+  published dist tarball.
+categories:
+  - linux
+playground:
+  networks:
+    - name: local
+      subnet: 172.16.0.0/24
+  machines:
+    - name: golang-01
+      users:
+        - name: root
+        - name: laborant
+          default: true
+      drives:
+        - source: golang
+          mount: /
+      network:
+        interfaces:
+          - network: local
+      resources:
+        cpuCount: 4
+        ramSize: 8GiB
+  initTasks:
+    install_shellgym:
+      name: install_shellgym
+      machine: golang-01
+      init: true
+      user: root
+      timeout_seconds: 120
+      run: |
+        mkdir -p /opt
+        cd /opt
+        wget --no-cache -q "https://labs.iximiuz.com/__static__/shellgym-dist.tar.gz?t=$(date +%s)" -O shellgym-dist.tar.gz
+        tar -xzf shellgym-dist.tar.gz
+        rm -f shellgym-dist.tar.gz
+    start_shellgym:
+      name: start_shellgym
+      machine: golang-01
+      init: true
+      user: root
+      needs:
+        - install_shellgym
+      timeout_seconds: 60
+      run: |
+        /opt/shellgym/start.sh
+        for i in $(seq 1 20); do
+          curl -fsS localhost:63636/api/status >/dev/null && exit 0
+          sleep 1
+        done
+        echo "shellgym daemon did not come up" >&2
+        exit 1
+  tabs:
+    - id: terminal-golang-01
+      kind: terminal
+      name: Term
+      machine: golang-01
+    - id: gym-ui
+      kind: http-port
+      name: Gym UI
+      machine: golang-01
+      number: 63636
+  accessControl:
+    canList:
+      - owner
+    canRead:
+      - anyone
+    canStart:
+      - anyone
