@@ -1,0 +1,4 @@
+- Add a goreleaser file and a GHA release workflow (on version tag)
+- Update README to show both installation methods (from source and downloading the release binary)
+- Tasks in multi-taks units seem to pass only once all tasks are solved (i.e., satisfying the condtions of the first task doesn't make it immediatelly turn green) - see `010.who-is-listening` and `010.field-kit`
+- Solving the whole path doesn't have a clear final "all done" state
