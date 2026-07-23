@@ -6,6 +6,7 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"log"
@@ -88,6 +89,9 @@ type sceneJSON struct {
 	Title    string `json:"title"`
 	ModuleID string `json:"moduleId"`
 	Status   string `json:"status"` // pending|active|completed|seen
+	// Locked marks units whose needs: dependencies are not all completed:
+	// browsable, but not activatable (no init, no checks) until they are.
+	Locked bool `json:"locked"`
 }
 
 type pathJSON struct {
@@ -128,6 +132,7 @@ func (s *Server) handlePath(w http.ResponseWriter, r *http.Request) {
 				out.Scenes = append(out.Scenes, sceneJSON{
 					Kind: "unit", ID: sc.Unit.ID, ModuleID: sc.Unit.ModuleID,
 					Title: sc.Unit.Front.Title, Status: st,
+					Locked: engine.UnitLockedIn(p, d, sc.Unit.ID),
 				})
 			}
 		}
@@ -149,6 +154,7 @@ type unitJSON struct {
 	HTML   string            `json:"html"`
 	Tasks  []taskJSON        `json:"tasks"`
 	Status string            `json:"status"`
+	Locked bool              `json:"locked"`
 	Vars   map[string]string `json:"vars,omitempty"` // consumed by `shellgym solve`
 }
 
@@ -175,7 +181,8 @@ func (s *Server) handleUnit(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("render: %v", err), 500)
 		return
 	}
-	out := unitJSON{ID: u.ID, Title: title, Module: u.ModuleID, HTML: html, Status: "pending", Vars: vars}
+	out := unitJSON{ID: u.ID, Title: title, Module: u.ModuleID, HTML: html, Status: "pending",
+		Locked: s.Engine.UnitLocked(id), Vars: vars}
 	s.Engine.Store.View(func(d *state.Data) {
 		us := d.Unit(id)
 		out.Status = string(us.Status)
@@ -215,7 +222,11 @@ func (s *Server) handleModule(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleActivate(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if err := s.Engine.ActivateUnit(id); err != nil {
-		http.Error(w, err.Error(), 400)
+		code := 400
+		if errors.Is(err, engine.ErrUnitLocked) {
+			code = 409
+		}
+		http.Error(w, err.Error(), code)
 		return
 	}
 	writeJSON(w, map[string]string{"ok": "true"})

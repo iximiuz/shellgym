@@ -230,7 +230,11 @@ they never bloat the progress document. The debug API reads them back.
 
 - `GET  /api/path` - path tree + per-unit status + progress counters
 - `GET  /api/unit/{id}` - rendered unit (HTML, tasks, vars)
-- `POST /api/activate/{id}` - make unit current (resolve vars, run init)
+- `POST /api/activate/{id}` - make unit current (resolve vars, run init).
+  Returns 409 for a *locked* unit - one whose `needs:` dependencies are
+  not all completed; there is no way around the gate. Browsing never
+  activates: the web UI auto-activates only the next unit in path order
+  and otherwise offers an explicit start button.
 - `POST /api/reset/{id}` - forget unit progress, re-activate
 - `POST /api/module-seen/{id}` - mark a module intro viewed
 - `GET  /api/module/{id}` - rendered module intro

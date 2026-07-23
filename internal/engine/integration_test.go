@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -603,5 +604,105 @@ func TestHintExitTerminatesScript(t *testing.T) {
 	}
 	if !found42 {
 		t.Fatalf("no run with the hint_exit code 42; runs: %+v", runs)
+	}
+}
+
+const seqFirstUnit = `---
+title: First
+init:
+  - name: prep
+    run: |
+      mkdir -p /tmp/shellgym-seqtest
+tasks:
+  made:
+    check: |
+      wait_file /tmp/shellgym-seqtest/a.txt
+---
+::task{name="made"}
+Waiting...
+::
+`
+
+const seqSecondUnit = `---
+title: Second
+needs: [first]
+init:
+  - name: seed
+    run: |
+      mkdir -p /tmp/shellgym-seqtest
+      touch /tmp/shellgym-seqtest/b-init.txt
+tasks:
+  made:
+    check: |
+      wait_file /tmp/shellgym-seqtest/b.txt
+---
+::task{name="made"}
+Waiting...
+::
+`
+
+const seqThirdUnit = `---
+title: Third
+tasks:
+  made:
+    check: |
+      wait_file /tmp/shellgym-seqtest/c.txt
+---
+::task{name="made"}
+Waiting...
+::
+`
+
+func TestUnitDependencyGating(t *testing.T) {
+	te := newTestEnv(t, map[string]string{
+		"010.m/010.first/unit.md":  seqFirstUnit,
+		"010.m/020.second/unit.md": seqSecondUnit,
+		"010.m/030.third/unit.md":  seqThirdUnit,
+	})
+	defer os.RemoveAll("/tmp/shellgym-seqtest")
+
+	// A unit whose needs: are unsolved is locked: activation is rejected
+	// and, crucially, its init must not run.
+	if err := te.eng.ActivateUnit("m/second"); !errors.Is(err, ErrUnitLocked) {
+		t.Fatalf("activate dependent unit: got %v, want ErrUnitLocked", err)
+	}
+	if _, err := os.Stat("/tmp/shellgym-seqtest/b-init.txt"); !os.IsNotExist(err) {
+		t.Fatal("locked unit's init ran")
+	}
+	if !te.eng.UnitLocked("m/second") || te.eng.UnitLocked("m/first") {
+		t.Fatal("lock flags: want second locked, first unlocked")
+	}
+
+	// A unit with no deps activates fine out of order.
+	if te.eng.UnitLocked("m/third") {
+		t.Fatal("independent unit reported locked")
+	}
+	if err := te.eng.ActivateUnit("m/third"); err != nil {
+		t.Fatalf("activate independent unit out of order: %v", err)
+	}
+
+	// Solve the dependency...
+	if err := te.eng.ActivateUnit("m/first"); err != nil {
+		t.Fatal(err)
+	}
+	sh := newStudentShell(t)
+	sh.Type("touch /tmp/shellgym-seqtest/a.txt")
+	if !te.waitEvent("unit", "m/first", "completed", 15*time.Second) {
+		t.Fatal("first unit did not complete")
+	}
+
+	// ...and the dependent unit unlocks: it activates and its init runs.
+	if err := te.eng.ActivateUnit("m/second"); err != nil {
+		t.Fatalf("activate unlocked unit: %v", err)
+	}
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		if _, err := os.Stat("/tmp/shellgym-seqtest/b-init.txt"); err == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("unlocked unit's init did not run")
+		}
+		time.Sleep(100 * time.Millisecond)
 	}
 }

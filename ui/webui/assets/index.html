@@ -101,7 +101,10 @@
       </ol>
       <p>The bar under the header tracks your overall progress. With
         <b>auto-advance</b> on, the next exercise opens by itself once you finish
-        the current one; use the arrow buttons to move around manually.</p>
+        the current one; use the arrow buttons to move around manually.
+        The next exercise in line starts by itself; if you jump ahead, start
+        the exercise with its button - except exercises that build on ones
+        you haven't solved yet, which stay locked until you solve those.</p>
       <table class="help-keys">
         <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>previous / next exercise</td></tr>
         <tr><td><kbd>m</kbd></td><td>view the whole path</td></tr>
@@ -129,7 +132,9 @@
       <div class="scene-title-row">
         <h1 class="scene-title"></h1>
         <svg class="title-check" viewBox="0 0 24 24" role="img" aria-label="Unit complete"><path fill="currentColor" d="M23 12c0 6.075-4.925 11-11 11S1 18.075 1 12S5.925 1 12 1s11 4.925 11 11M9.305 18.11l9.402-9.403l-1.414-1.414l-7.883 7.883l-2.476-3.01l-1.511 1.31l3.882 4.633z"/></svg>
+        <svg class="title-lock" viewBox="0 0 16 16" role="img" aria-label="Exercise locked"><path d="M5 7V4.8a3 3 0 0 1 6 0V7"/><rect x="3.2" y="7" width="9.6" height="6.5" rx="1.5"/></svg>
       </div>
+      <div class="locked-sub">This exercise builds on ones you haven't solved yet.</div>
       <div class="init-errors"></div>
       <div class="scene-body"></div>
       <div class="unit-complete-banner"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M23 12c0 6.075-4.925 11-11 11S1 18.075 1 12S5.925 1 12 1s11 4.925 11 11M9.305 18.11l9.402-9.403l-1.414-1.414l-7.883 7.883l-2.476-3.01l-1.511 1.31l3.882 4.633z"/></svg>Unit complete</div>
@@ -168,6 +173,14 @@
     <div class="scene-inner">
       <div class="init-error">Failed to load scene <code class="err-scene-id"></code>: <span class="err-text"></span></div>
     </div>
+  </div>
+</template>
+
+<template id="tpl-activate">
+  <div class="activate-bar">
+    <button class="activate-btn">Start this exercise</button>
+    <span class="activate-note">You jumped ahead - the scene is set up and the
+      checks go live when you start it.</span>
   </div>
 </template>
 

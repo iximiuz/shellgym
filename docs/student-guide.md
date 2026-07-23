@@ -46,6 +46,17 @@ Auto-advance is on by default; toggle it in the toolbar if you prefer to
 move manually. You can revisit completed exercises at any time - their
 tasks stay completed.
 
+Exercises start when you reach them: the next one in line starts by
+itself, while an exercise you jump to out of order shows a **Start this
+exercise** button - its scene is only set up (and its checks armed) once
+you press it. Exercises that build on the state of earlier ones stay
+locked - not startable at all - until you solve the exercises they
+depend on.
+
+You can have several started exercises unfinished at once. The checks
+follow you around: they watch the exercise you are currently on, and
+when you come back to an unfinished one, its checks pick up again.
+
 ## Progress and resuming
 
 Progress is saved on the box continuously (at `/var/lib/shellgym` by default).

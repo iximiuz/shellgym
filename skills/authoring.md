@@ -22,6 +22,21 @@ coach on failure, and a hidden `solve:` script proves the rep is
 solvable. A unit completes when all of its **tasks** are met. One
 daemon serves one path.
 
+A unit is armed by **activation**: init runs and checks start watching
+only then. A student can have several units in progress, but the daemon
+supervises only the most recently activated one - viewing a started
+unit re-activates it and moves the watch there. Note that `wait_exec`
+only counts commands run after the unit's latest activation, while
+state-based checks (`wait_file`, `wait_cwd`, ...) pass on whatever is
+true when they look. The UI auto-activates just the next unit in path
+order; a student who jumps ahead must start the unit explicitly, and a
+unit whose `needs:` dependencies are not all completed is **locked** -
+it cannot be activated at all until they are.
+Consequences for authoring: students may solve units out of order, so
+never assume an earlier unit was solved unless you declare it in
+`needs:`; and browsing a unit runs nothing, so scenes may safely do
+disruptive setup in init.
+
 ## Layout
 
 ```
@@ -266,7 +281,9 @@ tasks, bad task graphs, invalid unit deps and `from:` references, and
 markdown that does not render. `solve` is the real test: it spawns an
 interactive bash on a pty (indistinguishable from a student), activates
 each unit through the API, types the solve lines, and waits for
-completion, reporting PASS/FAIL per unit.
+completion, reporting PASS/FAIL per unit. A unit whose `needs:` are not
+solved cannot be activated - even by `solve --unit`; solve its chain
+first (or run without `--unit`, which walks the path in order).
 
 Debugging a failing unit - every check attempt's exit code, stdout,
 stderr, and duration is recorded:

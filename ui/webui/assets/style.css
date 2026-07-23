@@ -9,6 +9,8 @@
    cards, sky-400 accent, slate-950 code blocks. */
 
 :root {
+  /* theme-neutral: lock silhouette for masked icons (locked task badge) */
+  --lock-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M5 7V4.8a3 3 0 0 1 6 0V7' fill='none' stroke='black' stroke-width='1.8'/%3E%3Crect x='3' y='7' width='10' height='7' rx='1.5' fill='black'/%3E%3C/svg%3E");
   --bg: #edeff4;                       /* labs "mist" */
   --panel: #ffffff;
   --ink: #333333;                      /* labs prose body */
@@ -449,6 +451,54 @@ button { font: inherit; color: inherit; }
   border-radius: 10px 10px 0 0;
 }
 .hint-box .hint-body { padding: 10px 14px 12px; }
+
+/* ---------- locked (future) unit preview ---------- */
+/* lock in the unit header, mirroring .title-check */
+.title-lock {
+  display: none; width: 25px; height: 25px; flex: 0 0 auto;
+  color: var(--faint);
+  fill: none; stroke: currentColor; stroke-width: 1.6;
+}
+.scene.locked .title-lock { display: block; }
+/* tiny explainer under the title; sits where the title's margin was */
+.locked-sub {
+  display: none;
+  margin: -12px 0 18px;
+  color: var(--faint); font-size: 13.5px;
+}
+.scene.locked .locked-sub { display: block; }
+/* task boxes: dimmed, lock badge instead of the spinner */
+.scene.locked .task-box { opacity: .65; }
+.scene.locked .task-box .task-status-icon {
+  border: none; border-radius: 0; animation: none;
+  background: var(--faint);
+  -webkit-mask: var(--lock-mask) center / 16px 16px no-repeat;
+  mask: var(--lock-mask) center / 16px 16px no-repeat;
+}
+
+/* ---------- not-yet-started unit (jumped ahead, explicit start) ---------- */
+/* same dim as locked, but a still ring instead of a spinner or lock:
+   nothing is watching yet, nothing is barred either */
+.scene.unstarted .task-box { opacity: .65; }
+.scene.unstarted .task-box .task-status-icon {
+  animation: none; border-color: var(--line-strong);
+}
+.activate-bar {
+  display: flex; align-items: center; gap: 14px;
+  margin: 28px 0;
+}
+.activate-btn {
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--accent); color: var(--accent-ink); border: none;
+  font-weight: 600; font-size: 14px;
+  padding: 8px 18px; border-radius: 10px; cursor: pointer;
+  box-shadow: var(--card-shadow);
+  transition: filter .15s, transform .15s;
+}
+.activate-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.activate-btn:active { transform: none; }
+.activate-note { color: var(--faint); font-size: 13.5px; }
 
 /* ---------- init failure banner ---------- */
 .init-error {

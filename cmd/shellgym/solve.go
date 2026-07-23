@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -144,7 +145,8 @@ func (c *apiClient) post(path string) error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("POST %s: %s", path, resp.Status)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return fmt.Errorf("POST %s: %s: %s", path, resp.Status, strings.TrimSpace(string(body)))
 	}
 	return nil
 }
@@ -202,6 +204,9 @@ func runSolve(api, contentDir, unitFilter string, timeout time.Duration) error {
 			fmt.Printf("SKIP  %s (already completed)\n", scene.ID)
 			continue
 		}
+		// Note: the daemon rejects activation of units whose needs: deps
+		// are not solved, so a dependent of a failed (or filtered-out)
+		// unit fails here too - solving it alone is meaningless anyway.
 		if err := solveUnit(c, sh, path.Unit(scene.ID), timeout); err != nil {
 			fmt.Printf("FAIL  %s (%v)\n", scene.ID, err)
 			failed++

@@ -5,6 +5,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -139,13 +140,51 @@ func (e *Engine) Resume() {
 	}
 }
 
+// ErrUnitLocked is returned when a locked unit is activated: a unit whose
+// `needs:` dependencies are not all completed cannot start, because its
+// scene builds on state those units leave behind.
+var ErrUnitLocked = errors.New("unit is locked")
+
+// UnitLocked reports whether the unit's `needs:` dependencies are not all
+// completed yet. Completed units are never locked, so solved reps stay
+// browsable.
+func (e *Engine) UnitLocked(id string) bool {
+	var locked bool
+	e.Store.View(func(d *state.Data) {
+		locked = UnitLockedIn(e.Path, d, id)
+	})
+	return locked
+}
+
+// UnitLockedIn is UnitLocked against an already-locked view of the state
+// (for callers inside their own Store.View/Update).
+func UnitLockedIn(p *content.Path, d *state.Data, id string) bool {
+	u := p.Unit(id)
+	if u == nil {
+		return false
+	}
+	if us, ok := d.Units[id]; ok && us.Status == state.UnitCompleted {
+		return false
+	}
+	for _, need := range u.Front.Needs {
+		if ds, ok := d.Units[u.ModuleID+"/"+need]; !ok || ds.Status != state.UnitCompleted {
+			return true
+		}
+	}
+	return false
+}
+
 // ActivateUnit makes the unit current: resolves vars (once), runs init tasks
 // (once), and starts task supervisors. Completed units only become "current"
-// for viewing; their tasks are not restarted.
+// for viewing; their tasks are not restarted. Locked units (see UnitLocked)
+// are rejected with ErrUnitLocked so a unit never arms on a half-built scene.
 func (e *Engine) ActivateUnit(id string) error {
 	u := e.Path.Unit(id)
 	if u == nil {
 		return fmt.Errorf("unknown unit %q", id)
+	}
+	if e.UnitLocked(id) {
+		return fmt.Errorf("unit %q: %w - it builds on units that are not solved yet", id, ErrUnitLocked)
 	}
 
 	e.mu.Lock()

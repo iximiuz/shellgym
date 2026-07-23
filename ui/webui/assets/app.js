@@ -103,7 +103,10 @@ async function showScene(idx, dir) {
   state.idx = idx;
   state.sceneEl = el;
 
-  if (meta && meta.kind === 'unit' && meta.status !== 'completed') {
+  // Only the path's next unit (and units already started) auto-activate on
+  // view; other units wait for an explicit start, or are locked by deps.
+  if (meta && meta.kind === 'unit' && meta.status !== 'completed' &&
+      (meta.status === 'active' || meta.id === nextUnitId())) {
     fetch(`/api/activate/${meta.id}`, { method: 'POST' }).catch(() => {});
   }
   if (state.debugOpen) refreshDebug();
@@ -124,8 +127,37 @@ async function buildUnitScene(meta) {
     setTaskStatus(box, t.status);
     if (t.hint && !isDone(t.status)) setTaskHint(box, t.hint);
   }
-  if (unit.status === 'completed') el.classList.add('done');
+  if (unit.status === 'completed') {
+    el.classList.add('done');
+  } else if (meta.locked) {
+    el.classList.add('locked');
+  } else if (meta.status !== 'active' && meta.id !== nextUnitId()) {
+    addActivateBar(el, meta);
+  }
   return el;
+}
+
+// nextUnitId returns the first not-yet-completed unit in path order - the
+// only unit the UI activates on its own.
+function nextUnitId() {
+  const s = state.path.scenes.find((x) => x.kind === 'unit' && x.status !== 'completed');
+  return s ? s.id : null;
+}
+
+// addActivateBar turns the scene into an idle preview with an explicit
+// start button (for units the student jumped to out of order).
+function addActivateBar(el, meta) {
+  el.classList.add('unstarted');
+  const bar = tpl('tpl-activate');
+  $('.activate-btn', bar).addEventListener('click', async () => {
+    try {
+      const resp = await fetch(`/api/activate/${meta.id}`, { method: 'POST' });
+      if (!resp.ok) return;
+      bar.remove();
+      el.classList.remove('unstarted');
+    } catch { /* the path refresh will straighten things out */ }
+  });
+  $('.scene-body', el).before(bar);
 }
 
 async function buildModuleScene(meta) {
@@ -240,10 +272,31 @@ async function onUnitEvent(d) {
     state.path.completed++;
     renderProgress();
     if (d.unit === currentUnitId()) celebrate();
+    // Locked flags are dependency-derived (needs:) - refetch the
+    // authoritative ones, then re-gate whatever scene is on screen.
+    await refreshPath();
+    refreshCurrentSceneGating();
     // A unit solved while the finale is on screen: update its checklist.
     if (state.sceneEl?.classList.contains('finale-scene')) renderFinale(state.sceneEl);
   } else if (scene && d.status !== scene.status && scene.status !== 'completed') {
     scene.status = d.status;
+  }
+}
+
+// After progress changes, the scene on screen may have just become the
+// path's next unit (goes live automatically) or had its dependencies
+// solved (startable via the button now).
+function refreshCurrentSceneGating() {
+  const meta = state.path.scenes[state.idx];
+  const el = state.sceneEl;
+  if (!meta || meta.kind !== 'unit' || !el || meta.status !== 'pending') return;
+  if (meta.id === nextUnitId()) {
+    el.classList.remove('locked', 'unstarted');
+    $('.activate-bar', el)?.remove();
+    fetch(`/api/activate/${meta.id}`, { method: 'POST' }).catch(() => {});
+  } else if (!meta.locked && el.classList.contains('locked')) {
+    el.classList.remove('locked');
+    addActivateBar(el, meta);
   }
 }
 
