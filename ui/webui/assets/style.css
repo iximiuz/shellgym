@@ -480,6 +480,32 @@ button { font: inherit; color: inherit; }
   stroke-dasharray: 60; stroke-dashoffset: 60; animation: draw .5s .15s ease forwards; }
 @keyframes draw { to { stroke-dashoffset: 0; } }
 
+/* ---------- finale scene ("all done") ---------- */
+.finale-hero { text-align: center; padding: 26px 0 8px; }
+.finale-ring {
+  width: 96px; height: 96px; border-radius: 50%; margin: 0 auto 20px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--line); transition: background .3s;
+}
+.finale-scene.all-done .finale-ring {
+  background: var(--ok-fill);
+  animation: pop .45s cubic-bezier(.2, 1.6, .4, 1);
+  box-shadow: 0 10px 40px color-mix(in srgb, var(--ok-fill) 40%, transparent);
+}
+.finale-ring svg {
+  width: 48px; height: 48px; stroke: var(--faint); stroke-width: 7; fill: none;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.finale-scene.all-done .finale-ring svg {
+  stroke: #fff;
+  stroke-dasharray: 60; stroke-dashoffset: 60; animation: draw .5s .15s ease forwards;
+}
+.finale-scene h1.finale-title {
+  font-size: 27px; letter-spacing: -.015em; margin: 0 0 8px; color: var(--head-ink);
+}
+.finale-sub { color: var(--faint); margin: 0 0 10px; }
+.finale-list { max-width: 420px; margin: 0 auto; padding-bottom: 8px; }
+
 /* ---------- overlays (path map, help) ---------- */
 .overlay {
   position: fixed; inset: 0; z-index: 40;

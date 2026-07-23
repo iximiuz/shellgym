@@ -35,6 +35,7 @@ async function boot() {
   bindToolbar();
 }
 
+// Scene index scenes.length is the synthetic finale scene ("all done").
 function startSceneIndex() {
   const scenes = state.path.scenes;
   if (state.path.current) {
@@ -42,11 +43,11 @@ function startSceneIndex() {
     if (i >= 0 && scenes[i].status !== 'completed') return i;
     if (i >= 0) {
       for (let j = i + 1; j < scenes.length; j++) if (!sceneDone(scenes[j])) return j;
-      return i;
+      return scenes.length; // nothing left ahead - land on the finale
     }
   }
   for (let j = 0; j < scenes.length; j++) if (!sceneDone(scenes[j])) return j;
-  return scenes.length - 1;
+  return scenes.length;
 }
 
 function sceneDone(s) {
@@ -69,15 +70,16 @@ function renderProgress() {
 async function showScene(idx, dir) {
   // dir: 1 = forward, -1 = back, 0 = initial
   const scenes = state.path.scenes;
-  if (idx < 0 || idx >= scenes.length || state.animating) return;
-  const meta = scenes[idx];
+  if (idx < 0 || idx > scenes.length || state.animating) return;
+  const meta = idx === scenes.length ? null : scenes[idx]; // null = finale
   state.animating = true;
 
   let el;
   try {
-    el = meta.kind === 'unit' ? await buildUnitScene(meta) : await buildModuleScene(meta);
+    el = meta === null ? await buildFinaleScene()
+      : meta.kind === 'unit' ? await buildUnitScene(meta) : await buildModuleScene(meta);
   } catch (e) {
-    el = buildErrorScene(meta, e);
+    el = buildErrorScene(meta ?? { id: 'finale' }, e);
   }
 
   const stage = $('#stage');
@@ -101,7 +103,7 @@ async function showScene(idx, dir) {
   state.idx = idx;
   state.sceneEl = el;
 
-  if (meta.kind === 'unit' && meta.status !== 'completed') {
+  if (meta && meta.kind === 'unit' && meta.status !== 'completed') {
     fetch(`/api/activate/${meta.id}`, { method: 'POST' }).catch(() => {});
   }
   if (state.debugOpen) refreshDebug();
@@ -137,6 +139,38 @@ async function buildModuleScene(meta) {
     next();
   });
   return el;
+}
+
+// The finale scene sits one past the last real scene: a clear "all done"
+// state when the whole path is solved, or a checklist of what is still open.
+async function buildFinaleScene() {
+  await refreshPath(); // statuses may be stale if units were solved while away
+  const el = tpl('tpl-finale-scene');
+  renderFinale(el);
+  return el;
+}
+
+function renderFinale(el) {
+  const { completed, total, scenes, title } = state.path;
+  const allDone = completed === total;
+  el.classList.toggle('all-done', allDone);
+  $('.finale-title', el).textContent = allDone ? 'Path complete!' : 'End of the path';
+  $('.finale-sub', el).textContent = allDone
+    ? `All ${total} exercises of "${title}" are done. Well trained.`
+    : `${completed} of ${total} exercises done - a few reps are still open:`;
+  const list = $('.finale-list', el);
+  list.replaceChildren();
+  if (allDone) return;
+  scenes.forEach((s, i) => {
+    if (s.kind !== 'unit' || s.status === 'completed') return;
+    const item = tpl('tpl-map-item');
+    const st = $('.st', item);
+    st.classList.add(s.status);
+    st.textContent = s.status === 'active' ? '●' : '○';
+    $('.map-title', item).textContent = s.title;
+    item.addEventListener('click', () => showScene(i, -1));
+    list.appendChild(item);
+  });
 }
 
 function buildErrorScene(meta, err) {
@@ -206,6 +240,8 @@ async function onUnitEvent(d) {
     state.path.completed++;
     renderProgress();
     if (d.unit === currentUnitId()) celebrate();
+    // A unit solved while the finale is on screen: update its checklist.
+    if (state.sceneEl?.classList.contains('finale-scene')) renderFinale(state.sceneEl);
   } else if (scene && d.status !== scene.status && scene.status !== 'completed') {
     scene.status = d.status;
   }

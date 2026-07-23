@@ -147,6 +147,22 @@ func mustWrite(t *testing.T, path, data string) {
 	}
 }
 
+func (te *testEnv) waitTaskStatus(unit, task, wantStatus string, timeout time.Duration) bool {
+	te.t.Helper()
+	deadline := time.After(timeout)
+	for {
+		select {
+		case ev := <-te.events:
+			if d, ok := ev.Data.(TaskEvent); ok && ev.Type == "task" &&
+				d.Unit == unit && d.Task == task && d.Status == wantStatus {
+				return true
+			}
+		case <-deadline:
+			return false
+		}
+	}
+}
+
 func (te *testEnv) waitEvent(kind, unit, wantStatus string, timeout time.Duration) bool {
 	te.t.Helper()
 	deadline := time.After(timeout)
@@ -315,6 +331,58 @@ func TestTaskDependencyOrdering(t *testing.T) {
 	mustWrite(t, "/tmp/shellgym-dep/itest-stamp-one", "x")
 	if !te.waitEvent("unit", "m/two-steps", "completed", 15*time.Second) {
 		t.Fatal("unit did not complete after both files exist")
+	}
+}
+
+// Mirrors 080.final-lap/010.field-kit: edge tasks chained with needs.
+// Solving ONLY the first task must complete it individually (its own task
+// event, i.e. the box turns green right away) - not when the whole unit
+// is solved.
+const chainUnit = `---
+title: Chain
+tasks:
+  first:
+    check: |
+      wait_file /tmp/shellgym-chain/one
+  second:
+    needs: [first]
+    check: |
+      wait_file /tmp/shellgym-chain/two
+  third:
+    needs: [second]
+    check: |
+      wait_file /tmp/shellgym-chain/three
+---
+::task{name="first"}
+1
+::
+::task{name="second"}
+2
+::
+::task{name="third"}
+3
+::
+`
+
+func TestFirstTaskCompletesIndividually(t *testing.T) {
+	te := newTestEnv(t, map[string]string{"010.m/010.chain/unit.md": chainUnit})
+	defer os.RemoveAll("/tmp/shellgym-chain")
+	_ = os.MkdirAll("/tmp/shellgym-chain", 0o755)
+
+	if err := te.eng.ActivateUnit("m/chain"); err != nil {
+		t.Fatal(err)
+	}
+	// Solve only the first task.
+	mustWrite(t, "/tmp/shellgym-chain/one", "x")
+	if !te.waitTaskStatus("m/chain", "first", StatusCompleted, 5*time.Second) {
+		t.Fatal("task 'first' did not complete individually")
+	}
+	// Second becomes running (deps met), third still pending.
+	if !te.waitTaskStatus("m/chain", "second", StatusRunning, 5*time.Second) {
+		t.Fatal("task 'second' did not start after 'first' completed")
+	}
+	if te.waitEvent("unit", "m/chain", "completed", 2*time.Second) {
+		t.Fatal("unit completed with only one task solved")
 	}
 }
 

@@ -125,7 +125,7 @@ required by the learning path, it may break the restart, and the progress will b
 
 ## Main CLI commands
 
-| &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; Command &nbsp; &nbsp; &nbsp; &nbsp; | What it does |
+| &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; Command &nbsp; &nbsp; &nbsp; &nbsp; | What it does |
 |---|---|
 | `shellgym serve` | The daemon itself: loads a path, runs the validation engine, serves the web UI |
 | `shellgym validate` | Lints and renders a path without running it |

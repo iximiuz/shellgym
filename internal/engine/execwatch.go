@@ -218,9 +218,15 @@ func (w *ExecWatcher) netlinkLoop(sock int) {
 				if what == procEventExec {
 					// exec event: process pid at pe+16 (after what, cpu, timestamp[8])
 					pid := int(le.Uint32(buf[pe+16:]))
-					if ev, ok := harvestProc(pid); ok {
-						w.publish(ev)
-					}
+					// Harvest concurrently: a burst of execs (shell pipelines,
+					// login scripts) harvested serially would delay the later
+					// /proc reads past the lifetime of short-lived commands
+					// like `ss`, silently dropping their events.
+					go func(pid int) {
+						if ev, ok := harvestProc(pid); ok {
+							w.publish(ev)
+						}
+					}(pid)
 				}
 			}
 			off += nlmsgAlign(msgLen)
