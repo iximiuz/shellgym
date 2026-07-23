@@ -41,23 +41,40 @@ It should work on most (if not all) mainstream Linux distributions.
 
 > [!CAUTION]
 > Since reps will ask you to perform real actions on the live system, **use Shell Gym only with a disposable Linux host.** A few options:
-> - a local VM (Lima, SlicerVM, VirtualBox, etc.)
-> - [iximiuz Labs Playground](https://labs.iximiuz.com/playgrounds/golang)
-> - a DigitalOcean droplet, EC2 instance, etc.
+> - Use a local VM (Lima, SlicerVM, VirtualBox, etc.)
+> - Use an [iximiuz Labs Playground](https://labs.iximiuz.com/playgrounds/golang)
+> - Use a DigitalOcean droplet, an EC2 instance, etc.
 
-To get started, clone the repository and run:
+### Option 1: download a release binary
+
+Grab the latest release tarball (it bundles the `shellgym` binary and the
+sample learning path) and unpack it:
+
+```sh
+arch=$(uname -m | sed 's/x86_64/amd64/; s/aarch64/arm64/')
+curl -L "https://github.com/iximiuz/shellgym/releases/latest/download/shellgym_linux_${arch}.tar.gz" | tar xz
+```
+
+### Option 2: build from source
+
+Clone the repository and build the binary (requires Go):
 
 ```sh
 make build
+ln -s bin/shellgym shellgym
+```
 
-sudo ./bin/shellgym serve --content "$PWD/paths/sample-linux-101" --user $USER
+### Start the daemon
+
+```sh
+sudo ./shellgym serve --content "$PWD/paths/sample-linux-101" --user $USER
 ```
 
 ...or start the Shell Gym daemon in the background:
 
 ```sh
 sudo systemd-run --unit=shellgym --collect \
-    ./bin/shellgym serve --content "$PWD/paths/sample-linux-101" --user $USER
+    "$PWD/shellgym" serve --content "$PWD/paths/sample-linux-101" --user $USER
 ```
 
 Once started, open the web UI in a browser and follow the learning path:

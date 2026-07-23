@@ -1,0 +1,36 @@
+version: 2
+
+project_name: shellgym
+
+builds:
+  - main: ./cmd/shellgym
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+archives:
+  # Version-less asset names so the "latest" download URLs stay stable:
+  # https://github.com/iximiuz/shellgym/releases/latest/download/shellgym_linux_amd64.tar.gz
+  - name_template: '{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}'
+    formats: [tar.gz]
+    files:
+      - README.md
+      - LICENSE.md
+      - paths/sample-linux-101/**
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
