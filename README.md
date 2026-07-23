@@ -42,10 +42,10 @@ It should work on most (if not all) mainstream Linux distributions.
 > [!CAUTION]
 > Since reps will ask you to perform real actions on the live system, **use Shell Gym only with a disposable Linux host.** A few options:
 > - Use a local VM (Lima, SlicerVM, VirtualBox, etc.)
-> - Use an [iximiuz Labs Playground](https://labs.iximiuz.com/playgrounds/golang)
+> - Use an [iximiuz Labs Linux Playground](https://labs.iximiuz.com/playgrounds?category=linux&filter=official)
 > - Use a DigitalOcean droplet, an EC2 instance, etc.
 
-### Option 1: download a release binary
+### Option 1: Download a release binary
 
 Grab the latest release tarball (it bundles the `shellgym` binary and the
 sample learning path) and unpack it:
@@ -55,7 +55,7 @@ arch=$(uname -m | sed 's/x86_64/amd64/; s/aarch64/arm64/')
 curl -L "https://github.com/iximiuz/shellgym/releases/latest/download/shellgym_linux_${arch}.tar.gz" | tar xz
 ```
 
-### Option 2: build from source
+### Option 2: Build from source
 
 Clone the repository and build the binary (requires Go):
 
@@ -125,11 +125,11 @@ required by the learning path, it may break the restart, and the progress will b
 
 ## Main CLI commands
 
-| Command | What it does |
+| &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; Command &nbsp; &nbsp; &nbsp; &nbsp; | What it does |
 |---|---|
 | `shellgym serve` | The daemon itself: loads a path, runs the validation engine, serves the web UI |
 | `shellgym validate` | Lints and renders a path without running it |
-| `shellgym solve` | Acceptance test: auto-types reference solutions into a real pty shell, simulating a student's pass |
+| `shellgym solve` | Auto-types reference solutions into a real pty shell, simulating a student pass |
 | `shellgym skills` | Prints embedded authoring guides for AI-assisted content work |
 
 Architecture details live in [design.md](design.md).
@@ -137,13 +137,11 @@ See also the [student guide](student-guide.md) for day-to-day usage and the [aut
 
 ## Documentation
 
-| Page | Contents |
-|---|---|
-| [Student Guide](docs/student-guide.md) | Using the gym: reps, hints, navigation, progress |
-| [Authoring Guide](docs/authoring-guide.md) | Writing learning paths: format, tasks, vars, testing |
-| [Checks Reference](docs/checks.md) | Every built-in `wait_*`/helper command in detail |
-| [Detection Mechanisms](docs/detection.md) | How the daemon observes the student's shell |
-| [Design](docs/design.md) | Architecture, subsystems, state, APIs, deployment |
+- [Student Guide](docs/student-guide.md) - Using the gym: reps, hints, navigation, progress
+- [Authoring Guide](docs/authoring-guide.md) - Writing learning paths: format, tasks, vars, testing
+- [Checks Reference](docs/checks.md) - Every built-in `wait_*`/helper command in detail
+- [Detection Mechanisms](docs/detection.md) - How the daemon observes the student's shell
+- [Design](docs/design.md) - Architecture, subsystems, state, APIs, deployment
 
 ## Copyright
 
