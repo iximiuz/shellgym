@@ -86,7 +86,7 @@ init:                                 # ordered root scripts, run once on activa
 tasks:
   chdir:                              # task name = map key
     mode: edge                        # edge (default) | level
-    needs: []                         # other tasks in this unit
+    needs: []                         # other tasks in this unit (UI shows the task locked until they pass)
     timeout: 45                       # per-attempt seconds (default: 30 edge / 10 level)
     check: |                          # exit 0 = condition met
       wait_cwd "/tmp/gym/$DIRNAME"
@@ -269,11 +269,11 @@ Rules for individual units:
 ## Test workflow
 
 ```sh
-shellgym validate --content my-path          # lint + render every unit
+shellgym validate --path my-path          # lint + render every unit
 sudo systemd-run --unit=shellgym --collect \
-  shellgym serve --content "$PWD/my-path" --addr :63636 --user laborant
-shellgym solve --content my-path             # acceptance: types every solve script
-shellgym solve --content my-path --unit first-module/some-unit
+  shellgym serve --path "$PWD/my-path" --addr :63636 --user laborant
+shellgym solve --path my-path             # acceptance: types every solve script
+shellgym solve --path my-path --unit first-module/some-unit
 ```
 
 `validate` catches format errors: missing titles, empty or misdeclared

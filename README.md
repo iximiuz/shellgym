@@ -67,14 +67,14 @@ ln -s bin/shellgym shellgym
 ### Start the daemon
 
 ```sh
-sudo ./shellgym serve --content "$PWD/paths/sample-linux-101" --user $USER
+sudo ./shellgym serve --path "$PWD/paths/sample-linux-101" --user $USER
 ```
 
 ...or start the Shell Gym daemon in the background:
 
 ```sh
 sudo systemd-run --unit=shellgym --collect \
-    "$PWD/shellgym" serve --content "$PWD/paths/sample-linux-101" --user $USER
+    "$PWD/shellgym" serve --path "$PWD/paths/sample-linux-101" --user $USER
 ```
 
 Once started, open the web UI in a browser and follow the learning path:

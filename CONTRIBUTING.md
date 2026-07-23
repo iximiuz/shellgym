@@ -9,7 +9,7 @@ still validates:
 
 ```sh
 make build
-./bin/shellgym validate --content paths/sample-linux-101
+./bin/shellgym validate --path paths/sample-linux-101
 ```
 
 ## Licensing of contributions

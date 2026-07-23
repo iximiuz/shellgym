@@ -52,13 +52,13 @@ engine publishes events through and any number of UIs consume.
 
 The daemon CLI is a typical [spf13/cobra](https://github.com/spf13/cobra) app:
 
-- `shellgym serve --content <dir> [--addr :63636] [--state <dir>]
+- `shellgym serve --path <dir> [--addr :63636] [--state <dir>]
   [--run <dir>] [--user <login>] [--live]` - the daemon
-- `shellgym solve --content <dir> [--api URL] [--unit <id>]` - acceptance
+- `shellgym solve --path <dir> [--api URL] [--unit <id>]` - acceptance
   driver: spawns a real interactive bash on a pty (indistinguishable from
   a student terminal), walks the path via the daemon's API, types each
   task's `solve:` lines, reports PASS/FAIL per unit
-- `shellgym validate --content <dir>` - lint + render without running
+- `shellgym validate --path <dir>` - lint + render without running
 - `shellgym skills [name]` - dump embedded authoring skills (markdown)
 - `shellgym check <name> [args...]` - hidden; the target of the PATH shims
   task scripts call (`wait_cwd`, `hint_exit`, ...)

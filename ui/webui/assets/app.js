@@ -14,6 +14,7 @@ const state = {
   idx: -1,           // current scene index
   autoAdvance: true,
   sceneEl: null,     // current .scene element
+  unitTasks: [],     // tasks of the unit scene on screen (name/status/needs)
   animating: false,
   debugOpen: false,
   live: false,
@@ -120,13 +121,16 @@ async function buildUnitScene(meta) {
   $('.scene-title', el).textContent = unit.title;
   // unit.html is server-rendered trusted content (the author's markdown)
   $('.scene-body', el).innerHTML = unit.html;
-  for (const t of unit.tasks || []) {
+  state.unitTasks = unit.tasks || [];
+  for (const t of state.unitTasks) {
     const box = $(`.task-box[data-task="${cssEsc(t.name)}"]`, el);
     if (!box) continue;
     box.dataset.mode = t.mode;
+    if (t.needs?.length) $('.task-text', box).appendChild(tpl('tpl-task-needs'));
     setTaskStatus(box, t.status);
     if (t.hint && !isDone(t.status)) setTaskHint(box, t.hint);
   }
+  refreshTaskBlocking(el);
   if (unit.status === 'completed') {
     el.classList.add('done');
   } else if (meta.locked) {
@@ -241,13 +245,30 @@ function taskBox(name) {
   return state.sceneEl?.querySelector(`.task-box[data-task="${cssEsc(name)}"]`);
 }
 
+// A task with needs: is not checked until those tasks pass; show it as
+// blocked (lock icon + "unlocks after" note) until every dependency is done.
+function refreshTaskBlocking(root) {
+  const done = new Set(state.unitTasks.filter((t) => isDone(t.status)).map((t) => t.name));
+  for (const t of state.unitTasks) {
+    if (!t.needs?.length) continue;
+    const box = $(`.task-box[data-task="${cssEsc(t.name)}"]`, root);
+    if (!box) continue;
+    const unmet = t.needs.filter((n) => !done.has(n));
+    box.classList.toggle('blocked', unmet.length > 0 && !isDone(t.status));
+    if (unmet.length) $('.needs-list', box).textContent = unmet.join(', ');
+  }
+}
+
 function onTaskEvent(d) {
   if (d.unit !== currentUnitId()) return;
+  const t = state.unitTasks.find((x) => x.name === d.task);
+  if (t) t.status = d.status;
   const box = taskBox(d.task);
   if (box) {
     setTaskStatus(box, d.status);
     if (isDone(d.status)) setTaskHint(box, '');
   }
+  if (state.sceneEl) refreshTaskBlocking(state.sceneEl);
 }
 
 function onHintEvent(d) {

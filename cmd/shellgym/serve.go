@@ -20,7 +20,7 @@ import (
 
 func newServeCmd() *cobra.Command {
 	var (
-		contentDir string
+		pathDir string
 		addr       string
 		stateDir   string
 		runDir     string
@@ -31,32 +31,32 @@ func newServeCmd() *cobra.Command {
 		Use:   "serve",
 		Short: "Run the Shell Gym daemon (web UI + validation engine)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return serve(contentDir, addr, stateDir, runDir, shellUser, live)
+			return serve(pathDir, addr, stateDir, runDir, shellUser, live)
 		},
 	}
-	cmd.Flags().StringVar(&contentDir, "content", "", "learning path directory (required)")
+	cmd.Flags().StringVar(&pathDir, "path", "", "learning path directory (required)")
 	cmd.Flags().StringVar(&addr, "addr", ":63636", "web UI listen address")
 	cmd.Flags().StringVar(&stateDir, "state", "/var/lib/shellgym", "state directory")
 	cmd.Flags().StringVar(&runDir, "run", "/run/shellgym", "runtime directory (socket, check shims)")
 	cmd.Flags().StringVar(&shellUser, "user", "", "observed login user (default: from path.yaml)")
 	cmd.Flags().BoolVar(&live, "live", false,
 		"student-facing mode: strip solve scripts from on-disk unit files and disable the debug API")
-	_ = cmd.MarkFlagRequired("content")
+	_ = cmd.MarkFlagRequired("path")
 	return cmd
 }
 
-func serve(contentDir, addr, stateDir, runDir, shellUser string, live bool) error {
+func serve(pathDir, addr, stateDir, runDir, shellUser string, live bool) error {
 	if live {
-		n, err := content.StripSolveScripts(contentDir)
+		n, err := content.StripSolveScripts(pathDir)
 		if err != nil {
 			return err
 		}
-		log.Printf("live mode: stripped %d solve script(s) from %s", n, contentDir)
+		log.Printf("live mode: stripped %d solve script(s) from %s", n, pathDir)
 	}
 
 	distro, like := content.DetectDistro()
 	caps := content.DetectCaps()
-	path, err := content.Load(contentDir, distro, like, caps)
+	path, err := content.Load(pathDir, distro, like, caps)
 	if err != nil {
 		return err
 	}
@@ -111,7 +111,7 @@ func serve(contentDir, addr, stateDir, runDir, shellUser string, live bool) erro
 }
 
 func newValidateCmd() *cobra.Command {
-	var contentDir string
+	var pathDir string
 	cmd := &cobra.Command{
 		Use:   "validate",
 		Short: "Lint and render a learning path without running it",
@@ -119,7 +119,7 @@ func newValidateCmd() *cobra.Command {
 			distro, like := content.DetectDistro()
 			// Validate with ALL capabilities assumed so requires-gated
 			// units are checked too.
-			path, err := content.Load(contentDir, distro, like, []string{"systemd"})
+			path, err := content.Load(pathDir, distro, like, []string{"systemd"})
 			if err != nil {
 				return err
 			}
@@ -149,7 +149,7 @@ func newValidateCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&contentDir, "content", "", "learning path directory (required)")
-	_ = cmd.MarkFlagRequired("content")
+	cmd.Flags().StringVar(&pathDir, "path", "", "learning path directory (required)")
+	_ = cmd.MarkFlagRequired("path")
 	return cmd
 }

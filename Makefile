@@ -13,11 +13,11 @@ vet:
 	$(GO) vet ./...
 
 validate: build
-	./$(BIN) validate --content paths/sample-linux-101
+	./$(BIN) validate --path paths/sample-linux-101
 
 # Run the daemon against the reference path (playground use only).
 run: build
-	sudo ./$(BIN) serve --content paths/sample-linux-101 --addr :63636
+	sudo ./$(BIN) serve --path paths/sample-linux-101 --addr :63636
 
 clean:
 	rm -rf bin

@@ -145,6 +145,9 @@ type taskJSON struct {
 	Mode   string `json:"mode"`
 	Status string `json:"status"`
 	Hint   string `json:"hint,omitempty"`
+	// Needs lists task names that must complete before this one goes live;
+	// the UI shows dependent tasks as blocked until then.
+	Needs []string `json:"needs,omitempty"`
 }
 
 type unitJSON struct {
@@ -187,7 +190,7 @@ func (s *Server) handleUnit(w http.ResponseWriter, r *http.Request) {
 		us := d.Unit(id)
 		out.Status = string(us.Status)
 		for _, t := range u.Tasks {
-			tj := taskJSON{Name: t.Name, Mode: string(t.Mode), Status: "pending"}
+			tj := taskJSON{Name: t.Name, Mode: string(t.Mode), Status: "pending", Needs: t.Needs}
 			if ts, ok := us.Tasks[t.Name]; ok {
 				tj.Status = ts.Status
 				tj.Hint = ts.Hint

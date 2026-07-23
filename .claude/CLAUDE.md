@@ -27,7 +27,7 @@ labctl cp bin/shellgym <playground-id>:~/shellgym
 labctl cp -r paths <playground-id>:~/paths
 
 # 4. Run remotely (playground login user is "laborant")
-labctl ssh <playground-id> -- sudo /home/laborant/shellgym serve --content /home/laborant/paths/sample-linux-101 --user laborant
+labctl ssh <playground-id> -- sudo /home/laborant/shellgym serve --path /home/laborant/paths/sample-linux-101 --user laborant
 # ...or open an interactive shell with: labctl ssh <playground-id>
 
 # 5. Reach the web UI (daemon listens on 63636) from the local machine

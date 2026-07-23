@@ -420,6 +420,29 @@ button { font: inherit; color: inherit; }
 .task-box[data-status="completed"] .task-section-hint,
 .task-box[data-status="satisfied"] .task-section-hint { display: none; }
 
+/* dependency-blocked task: waits for its needs: tasks to pass first */
+.task-box.blocked { opacity: .65; }
+.task-box.blocked .task-status-icon {
+  border: none; border-radius: 0; animation: none;
+  background: var(--faint);
+  -webkit-mask: var(--lock-mask) center / 16px 16px no-repeat;
+  mask: var(--lock-mask) center / 16px 16px no-repeat;
+}
+.task-needs { display: none; }
+.task-box.blocked .task-needs {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 6px;
+  font-size: 11px; letter-spacing: .04em;
+  color: var(--faint);
+}
+.needs-lock {
+  width: 13px; height: 13px; flex: 0 0 auto;
+  fill: none; stroke: currentColor; stroke-width: 1.6;
+}
+.needs-list { font-family: var(--mono); }
+.task-box.blocked .task-section-hint { display: none; }
+.task-box.blocked[data-mode="level"] .task-text::after { content: ""; }
+
 /* level-mode badge */
 .task-box[data-mode="level"] .task-text::after {
   content: "kept in check while you work"; display: block;

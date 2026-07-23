@@ -26,7 +26,7 @@ import (
 func newSolveCmd() *cobra.Command {
 	var (
 		api        string
-		contentDir string
+		pathDir string
 		unitFilter string
 		timeout    time.Duration
 	)
@@ -34,14 +34,14 @@ func newSolveCmd() *cobra.Command {
 		Use:   "solve",
 		Short: "Auto-solve a learning path through a real pty shell (acceptance test)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSolve(api, contentDir, unitFilter, timeout)
+			return runSolve(api, pathDir, unitFilter, timeout)
 		},
 	}
 	cmd.Flags().StringVar(&api, "api", "http://localhost:63636", "daemon API base URL")
-	cmd.Flags().StringVar(&contentDir, "content", "", "learning path directory (source of solve scripts; required)")
+	cmd.Flags().StringVar(&pathDir, "path", "", "learning path directory (source of solve scripts; required)")
 	cmd.Flags().StringVar(&unitFilter, "unit", "", "solve only this unit id (module/unit)")
 	cmd.Flags().DurationVar(&timeout, "timeout", 2*time.Minute, "per-unit completion timeout")
-	_ = cmd.MarkFlagRequired("content")
+	_ = cmd.MarkFlagRequired("path")
 	return cmd
 }
 
@@ -167,11 +167,11 @@ type apiUnit struct {
 
 // --- the walk ---------------------------------------------------------------
 
-func runSolve(api, contentDir, unitFilter string, timeout time.Duration) error {
+func runSolve(api, pathDir, unitFilter string, timeout time.Duration) error {
 	// Load WITHOUT distro/capability filtering: the daemon's /api/path is
 	// the authority on which units exist (its environment may differ from
 	// where solve runs, e.g. a containerized daemon).
-	path, err := content.Load(contentDir, "*", nil, []string{"*"})
+	path, err := content.Load(pathDir, "*", nil, []string{"*"})
 	if err != nil {
 		return err
 	}

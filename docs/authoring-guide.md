@@ -186,7 +186,9 @@ Task names are the map keys; the UI shows tasks in dependency-first
   between satisfied and unsatisfied.
 - `needs` - other tasks in the same unit that must be completed
   (edge) or currently satisfied (level) before this one starts. Edge
-  tasks may not depend on level tasks (load-time error).
+  tasks may not depend on level tasks (load-time error). The UI shows
+  such a task with a lock icon and an "unlocks after" note until its
+  dependencies pass.
 - `timeout` - per-attempt seconds, overriding the defaults (30 for
   edge attempts, 10 for level polls).
 
@@ -326,11 +328,11 @@ heading becomes the module title.
 ## Testing a path
 
 ```sh
-shellgym validate --content my-path        # lint + render every unit
+shellgym validate --path my-path        # lint + render every unit
 sudo systemd-run --unit=shellgym --collect \
-  shellgym serve --content "$PWD/my-path" --addr :63636 --user laborant
-shellgym solve --content my-path           # acceptance: types every solve script
-shellgym solve --content my-path --unit first-module/some-unit
+  shellgym serve --path "$PWD/my-path" --addr :63636 --user laborant
+shellgym solve --path my-path           # acceptance: types every solve script
+shellgym solve --path my-path --unit first-module/some-unit
 ```
 
 `validate` catches format errors: missing titles, empty or misdeclared
