@@ -236,6 +236,25 @@ function setTaskStatus(box, status) {
   // hover). Changing an inherited custom property inline marks the box's
   // whole subtree style-dirty, forcing the recalc on the next frame.
   box.style.setProperty('--sg-status', status);
+  if (box.isConnected) ensurePainted();
+}
+
+// Chrome parks the main-thread rendering lifecycle of a cross-origin
+// iframe it deems unimportant (no user activation): JS and DOM keep
+// running, but no frame is committed to the screen until input hits the
+// frame. After a status flip, verify a frame is actually produced; if
+// not, ask the embedder to force one (a 1px iframe resize on its side
+// unconditionally makes the child relayout and commit).
+let paintCheckToken = 0;
+function ensurePainted() {
+  const token = ++paintCheckToken;
+  let painted = false;
+  requestAnimationFrame(() => { painted = true; });
+  setTimeout(() => {
+    if (!painted && token === paintCheckToken && window.parent !== window) {
+      window.parent.postMessage({ type: 'sg:force-paint' }, '*');
+    }
+  }, 300);
 }
 
 function setTaskHint(box, hint) {

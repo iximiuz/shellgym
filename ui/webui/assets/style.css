@@ -377,7 +377,17 @@ button { font: inherit; color: inherit; }
   border-top-color: var(--task-fill);
   animation: spin 1.1s linear infinite;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
+/* outline-color is animated (invisibly - outlines stay style:none) purely
+   to keep this animation OFF the compositor. A transform-only animation is
+   compositor-promoted, and Chrome then parks the main-thread rendering
+   lifecycle of a cross-origin iframe it deems unimportant: the spinner
+   keeps spinning while every other visual update (task going green) is
+   frozen until user input hits the frame. A main-thread animation forces
+   the lifecycle to keep running while any spinner is on screen. */
+@keyframes spin {
+  from { transform: rotate(0turn); outline-color: rgba(0, 0, 0, 0.001); }
+  to   { transform: rotate(1turn); outline-color: rgba(0, 0, 0, 0.002); }
+}
 .task-box[data-status="completed"],
 .task-box[data-status="satisfied"] {
   border-color: var(--ok-line);
