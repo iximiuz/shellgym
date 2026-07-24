@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -23,7 +24,7 @@ import (
 
 // Names lists every check command (used to generate PATH shims).
 var Names = []string{
-	"shell_cwd", "shells", "hint_exit",
+	"shell_cwd", "shells", "hint_exit", "set_var",
 	"wait_cwd", "wait_exec", "wait_env",
 	"wait_file", "wait_file_gone", "wait_file_contains",
 	"wait_proc", "wait_proc_gone",
@@ -40,6 +41,9 @@ const HintExitCode = 42
 func Main(name string, args []string) int {
 	if name == "hint_exit" {
 		return hintExit(args)
+	}
+	if name == "set_var" {
+		return setVar(args)
 	}
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
 	timeout := fs.Float64("timeout", 0, "give up after this many seconds (0 = wait forever)")
@@ -97,9 +101,25 @@ func (c *client) run(name string, args []string, deadline time.Time) (bool, erro
 	}
 	switch name {
 	case "shell_cwd":
+		if len(args) > 1 {
+			return false, fmt.Errorf("usage: shell_cwd [shell-pid]")
+		}
 		shells, err := c.getShells()
 		if err != nil {
 			return false, err
+		}
+		if len(args) == 1 {
+			pid, err := parsePID(args[0])
+			if err != nil {
+				return false, err
+			}
+			for _, s := range shells {
+				if s.PID == pid {
+					fmt.Println(s.Cwd)
+					return true, nil
+				}
+			}
+			return false, fmt.Errorf("no interactive shell with pid %d", pid)
 		}
 		if len(shells) == 0 {
 			return false, fmt.Errorf("no interactive shells found")
@@ -116,8 +136,18 @@ func (c *client) run(name string, args []string, deadline time.Time) (bool, erro
 		}
 		return true, nil
 	case "wait_cwd":
-		if len(args) != 1 {
-			return false, fmt.Errorf("usage: wait_cwd <abs-path-or-regex>")
+		if len(args) < 1 || len(args) > 2 {
+			return false, fmt.Errorf("usage: wait_cwd [shell-pid] <abs-path-or-regex>")
+		}
+		onlyPID := 0
+		pattern := args[0]
+		if len(args) == 2 {
+			pid, err := parsePID(args[0])
+			if err != nil {
+				return false, err
+			}
+			onlyPID = pid
+			pattern = args[1]
 		}
 		return c.poll(oneShot, deadline, func() (bool, error) {
 			shells, err := c.getShells()
@@ -125,7 +155,13 @@ func (c *client) run(name string, args []string, deadline time.Time) (bool, erro
 				return false, err
 			}
 			for _, s := range shells {
-				if pathMatch(args[0], s.Cwd) {
+				if onlyPID != 0 && s.PID != onlyPID {
+					continue
+				}
+				if pathMatch(pattern, s.Cwd) {
+					// Report which shell matched, so checks can capture it
+					// (typically into a task var via set_var).
+					fmt.Println(s.PID)
 					return true, nil
 				}
 			}
@@ -234,6 +270,14 @@ func (c *client) poll(oneShot bool, deadline time.Time, fn func() (bool, error))
 	}
 }
 
+func parsePID(s string) (int, error) {
+	pid, err := strconv.Atoi(s)
+	if err != nil || pid <= 0 {
+		return 0, fmt.Errorf("invalid shell pid %q", s)
+	}
+	return pid, nil
+}
+
 // pathMatch: exact path match, or regex when the pattern contains regex
 // metacharacters and compiles.
 func pathMatch(pattern, cwd string) bool {
@@ -340,6 +384,44 @@ func hintExit(args []string) int {
 		fmt.Fprintf(os.Stderr, "hint_exit: daemon returned %s\n", resp.Status)
 	}
 	return HintExitCode
+}
+
+// setVar persists a task var on the current unit:
+//
+//	set_var <NAME> <value>
+//
+// The var joins the unit's vars: exported into subsequent runs of the
+// unit's own scripts and into scripts of units that declare this unit in
+// `needs:`. This is the way to pass small values between tasks (and on
+// to dependent units) - use files only for BLOB-like data.
+func setVar(args []string) int {
+	if len(args) != 2 {
+		fmt.Fprintln(os.Stderr, "usage: set_var <NAME> <value>")
+		return 2
+	}
+	unit := os.Getenv("GYM_UNIT")
+	if unit == "" {
+		fmt.Fprintln(os.Stderr, "set_var: GYM_UNIT not set (must run inside a task script)")
+		return 2
+	}
+	c := &client{sock: os.Getenv("GYM_SOCK")}
+	if c.sock == "" {
+		fmt.Fprintln(os.Stderr, "set_var: GYM_SOCK not set")
+		return 2
+	}
+	body, _ := json.Marshal(map[string]string{"unit": unit, "name": args[0], "value": args[1]})
+	resp, err := c.http().Post("http://gym/vars", "application/json", bytes.NewReader(body))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "set_var: %v\n", err)
+		return 2
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		fmt.Fprintf(os.Stderr, "set_var: daemon returned %s: %s\n", resp.Status, strings.TrimSpace(string(msg)))
+		return 2
+	}
+	return 0
 }
 
 // --- daemon API calls -------------------------------------------------------

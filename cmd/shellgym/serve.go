@@ -96,7 +96,7 @@ func serve(pathDir, addr, stateDir, runDir, shellUser string, live bool) error {
 		SockPath:  sockPath,
 	})
 
-	if err := engine.ServeCheckAPI(sockPath, path.ShellUser, watcher, eng.PublishHint); err != nil {
+	if err := engine.ServeCheckAPI(sockPath, path.ShellUser, watcher, eng.PublishHint, eng.SetVar); err != nil {
 		return err
 	}
 

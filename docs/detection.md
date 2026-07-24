@@ -32,7 +32,10 @@ and the tty name via `/proc/<pid>/fd/0`. Shells are ordered by process
 start time; "the student's shell" for single-shell checks like
 `shell_cwd` means the most recently started one, while `wait_cwd`
 accepts a match in **any** of them (the student may legitimately have
-several terminals open).
+several terminals open). Both accept an optional shell PID argument to
+pin the check to one specific shell - `wait_cwd` prints the matched
+shell's PID on success, which is how a unit hands "the shell that did
+it" over to a dependent unit (via a `set_var` task var).
 
 The scan runs on demand per check evaluation - there is no shell
 tracking state to go stale.
@@ -156,6 +159,7 @@ Checks that need daemon-side state talk to it over a unix socket
 | `/exec/wait` | `wait_exec`, `wait_env` | block until a matching exec event |
 | `/exec/seq`, `/exec/snapshot` | debugging | event-stream introspection |
 | `/hint` | `hint_exit` | push a hint to the UI |
+| `/vars` | `set_var` | publish a task var on the current unit |
 
 The socket path and the activation horizon reach the shims through the
 `GYM_SOCK` and `GYM_SINCE_SEQ` environment variables the engine sets for

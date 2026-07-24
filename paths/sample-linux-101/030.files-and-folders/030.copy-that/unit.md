@@ -11,11 +11,9 @@ init:
 tasks:
   copied:
     check: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
-      wait_file_contains "$HOME_DIR/original.txt" "artifact $TOKEN"
+      wait_file_contains "$GYM_USER_HOME/original.txt" "artifact $TOKEN"
     hint: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
-      if [ -f "$HOME_DIR/original.txt" ]; then
+      if [ -f "$GYM_USER_HOME/original.txt" ]; then
         echo "A file named original.txt is in your home directory, but its content differs from /tmp/vault/original.txt. Copy the file again."
       else
         echo "cp takes two arguments: the source path and the destination. The destination can be a directory."

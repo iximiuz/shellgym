@@ -6,11 +6,9 @@ vars:
 tasks:
   file_created:
     check: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
-      wait_file "$HOME_DIR/$PROJECT/*.log"
+      wait_file "$GYM_USER_HOME/$PROJECT/*.log"
     hint: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
-      if [ -d "$HOME_DIR/$PROJECT" ]; then
+      if [ -d "$GYM_USER_HOME/$PROJECT" ]; then
         echo "The ${PROJECT} directory is there, but no .log file inside it yet. touch creates empty files."
       else
         echo "The ~/${PROJECT} directory disappeared. Recreate it first with mkdir."

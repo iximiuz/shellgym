@@ -96,7 +96,7 @@ vars:
   DIRNAME: { pick: [alpha, bravo, charlie] }   # random choice, sticky per attempt
   TOKEN:   { shell: "head -c3 /dev/urandom | od -An -tx1 | tr -d ' \n'" }
   PORT:    { value: "8080" }                   # fixed value
-  HOME_DIR:    { from: make-a-home.HOME_DIR }  # inherited from a preceding unit
+  PROJECT: { from: make-a-home.PROJECT }       # inherited from a preceding unit
 init:                       # ordered root scripts, run once when the unit activates
   - name: create_tree
     run: |

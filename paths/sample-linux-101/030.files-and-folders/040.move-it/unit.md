@@ -5,18 +5,15 @@ vars:
 init:
   - name: seed_box
     run: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
-      mkdir -p "$HOME_DIR/inbox" "$HOME_DIR/outbox"
-      echo cargo > "$HOME_DIR/inbox/$CRATE.tmp"
-      chown -R "$GYM_USER" "$HOME_DIR/inbox" "$HOME_DIR/outbox"
+      mkdir -p "$GYM_USER_HOME/inbox" "$GYM_USER_HOME/outbox"
+      echo cargo > "$GYM_USER_HOME/inbox/$CRATE.tmp"
+      chown -R "$GYM_USER" "$GYM_USER_HOME/inbox" "$GYM_USER_HOME/outbox"
 tasks:
   moved:
     check: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
-      wait_file "$HOME_DIR/outbox/$CRATE.txt"
+      wait_file "$GYM_USER_HOME/outbox/$CRATE.txt"
     hint: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
-      if [ -f "$HOME_DIR/inbox/$CRATE.tmp" ]; then
+      if [ -f "$GYM_USER_HOME/inbox/$CRATE.tmp" ]; then
         echo "The file is still in inbox/. mv can move and rename in a single step: give it the old path and the new path."
       else
         echo "inbox/${CRATE}.tmp is gone but outbox/${CRATE}.txt has not appeared. Check where the file ended up with ls."
@@ -25,8 +22,7 @@ tasks:
       mv ~/inbox/$CRATE.tmp ~/outbox/$CRATE.txt
   old_gone:
     check: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
-      wait_file_gone "$HOME_DIR/inbox/$CRATE.tmp"
+      wait_file_gone "$GYM_USER_HOME/inbox/$CRATE.tmp"
 ---
 
 Your home directory now has `inbox` and `outbox` directories, and a file

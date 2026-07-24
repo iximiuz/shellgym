@@ -3,8 +3,7 @@ title: Find out where you are
 tasks:
   saved_location:
     check: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
-      wait_file_contains /tmp/here.txt "^${HOME_DIR}$"
+      wait_file_contains /tmp/here.txt "^${GYM_USER_HOME}$"
     hint: |
       if [ -f /tmp/here.txt ]; then
         echo "The file /tmp/here.txt exists but does not contain your home directory path. Check its content with: cat /tmp/here.txt"

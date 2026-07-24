@@ -5,14 +5,12 @@ vars:
 init:
   - name: create_dir
     run: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
-      mkdir -p "$HOME_DIR/$DIRNAME"
-      chown "$GYM_USER" "$HOME_DIR/$DIRNAME"
+      mkdir -p "$GYM_USER_HOME/$DIRNAME"
+      chown "$GYM_USER" "$GYM_USER_HOME/$DIRNAME"
 tasks:
   arrived:
     check: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
-      wait_cwd "$HOME_DIR/$DIRNAME"
+      wait_cwd "$GYM_USER_HOME/$DIRNAME"
     hint: |
       CWD=$(shell_cwd 2>/dev/null || echo "?")
       echo "Your shell is currently in $CWD. Change into the ${DIRNAME} directory with cd."

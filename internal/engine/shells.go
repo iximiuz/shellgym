@@ -113,6 +113,14 @@ func lookupUID(username string) (int, error) {
 	return strconv.Atoi(u.Uid)
 }
 
+func lookupHome(username string) (string, error) {
+	u, err := user.Lookup(username)
+	if err != nil {
+		return "", err
+	}
+	return u.HomeDir, nil
+}
+
 // ShellEnvOf extracts an environment variable observed in the *initial* env
 // of a process (note: /proc/pid/environ does not reflect later exports; use
 // exec-event children to observe those).

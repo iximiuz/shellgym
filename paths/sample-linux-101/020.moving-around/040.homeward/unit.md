@@ -1,45 +1,31 @@
 ---
 title: Return home from anywhere
+needs: [one-level-up]
 tasks:
-  left_home:
-    check: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
-      while :; do
-        CWD=$(shell_cwd 2>/dev/null || true)
-        case "$CWD" in
-          ""|"$HOME_DIR"|"$HOME_DIR"/*) sleep 0.5 ;;
-          *) exit 0 ;;
-        esac
-      done
-    hint: |
-      echo "First wander off: cd into /tmp, /var, or anywhere outside your home directory."
-    solve: |
-      cd /var/log
   back_home:
-    needs: [left_home]
     check: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
-      wait_cwd "$HOME_DIR"
+      # TRAVELER (a task var set by the one-level-up unit) is the PID of
+      # the shell that walked the /tmp/depths tree; only THAT shell landing
+      # exactly in $HOME counts - an idle second terminal already sitting
+      # at home does not.
+      if [ -z "$TRAVELER" ] || ! [ -d "/proc/$TRAVELER" ]; then
+        sleep 5  # pace the restart loop - this state only clears on reset
+        hint_exit "Lost track of the shell that walked the depths (was its terminal closed?). Reset the previous unit and climb again."
+      fi
+      wait_cwd "$TRAVELER" "$GYM_USER_HOME"
     hint: |
-      echo "Now come home. Plain cd with no arguments takes you straight there."
+      CWD=$(shell_cwd "$TRAVELER" 2>/dev/null || echo "?")
+      echo "Your shell is still in $CWD. Plain cd with no arguments takes you straight home."
     solve: |
       cd
 ---
 
-`cd` with no arguments takes you home from anywhere, no matter how deep you
-wandered. Prove it in two moves.
+Your shell is still parked somewhere in the `/tmp/depths` tree. You could
+climb back with `..` steps, or spell out the full path - but there is a
+shortcut: `cd` with no arguments takes you home from anywhere, no matter
+how deep you wandered.
 
-First, go somewhere outside your home directory, for example `/var/log` or
-`/tmp`:
-
-::task{name="left_home"}
-#active
-Waiting for your shell to leave the home directory...
-#completed
-Far from home now.
-::
-
-Then return home with a single, argument-less command:
+Come home with a single, argument-less command:
 
 ::task{name="back_home"}
 #active

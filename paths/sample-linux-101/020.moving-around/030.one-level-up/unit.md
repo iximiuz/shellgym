@@ -7,7 +7,10 @@ vars:
 tasks:
   went_up:
     check: |
-      wait_cwd "/tmp/depths/$LEVEL1/$LEVEL2"
+      # wait_cwd prints the PID of the shell that matched; publish it as a
+      # task var so the homeward unit can watch this same shell come home.
+      TRAVELER=$(wait_cwd "/tmp/depths/$LEVEL1/$LEVEL2") || exit 1
+      set_var TRAVELER "$TRAVELER"
     hint: |
       CWD=$(shell_cwd 2>/dev/null || echo "?")
       echo "You are in $CWD. Two dots (..) always mean the parent of the current directory."

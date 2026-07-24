@@ -17,12 +17,10 @@ init:
 tasks:
   counted:
     check: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
       EXPECTED=$(cat /tmp/journal_expected)
-      wait_file_contains "$HOME_DIR/count.txt" "^${EXPECTED}\s*$"
+      wait_file_contains "$GYM_USER_HOME/count.txt" "^${EXPECTED}\s*$"
     hint: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
-      if [ -f "$HOME_DIR/count.txt" ]; then
+      if [ -f "$GYM_USER_HOME/count.txt" ]; then
         echo "count.txt exists but the number inside is not right. Count lines that mention ${ANIMAL} in /tmp/journal.txt - grep can filter, wc -l can count, and a pipe connects them. (grep -c does both in one step.)"
       else
         echo "Filter the journal with grep, count the matching lines, and redirect the resulting number into ~/count.txt."

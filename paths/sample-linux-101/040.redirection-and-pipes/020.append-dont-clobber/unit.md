@@ -6,12 +6,10 @@ vars:
 tasks:
   appended:
     check: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
-      wait_file_contains "$HOME_DIR/motto.txt" "^$MOTTO\n.+"
+      wait_file_contains "$GYM_USER_HOME/motto.txt" "^$MOTTO\n.+"
     hint: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
-      LINES=$(wc -l < "$HOME_DIR/motto.txt" 2>/dev/null || echo 0)
-      FIRST=$(head -1 "$HOME_DIR/motto.txt" 2>/dev/null || true)
+      LINES=$(wc -l < "$GYM_USER_HOME/motto.txt" 2>/dev/null || echo 0)
+      FIRST=$(head -1 "$GYM_USER_HOME/motto.txt" 2>/dev/null || true)
       if [ "$FIRST" != "$MOTTO" ]; then
         echo "The first line of motto.txt is no longer '${MOTTO}' - it looks like the file got overwritten. Recreate the first line, then append with >> (two arrows)."
       elif [ "$LINES" -lt 2 ]; then

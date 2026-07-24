@@ -3,10 +3,9 @@ title: Look around
 init:
   - name: seed_home
     run: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
-      mkdir -p "$HOME_DIR/notes" "$HOME_DIR/projects"
-      touch "$HOME_DIR/readme.txt"
-      chown "$GYM_USER" "$HOME_DIR/notes" "$HOME_DIR/projects" "$HOME_DIR/readme.txt"
+      mkdir -p "$GYM_USER_HOME/notes" "$GYM_USER_HOME/projects"
+      touch "$GYM_USER_HOME/readme.txt"
+      chown "$GYM_USER" "$GYM_USER_HOME/notes" "$GYM_USER_HOME/projects" "$GYM_USER_HOME/readme.txt"
 tasks:
   ran_ls:
     check: |

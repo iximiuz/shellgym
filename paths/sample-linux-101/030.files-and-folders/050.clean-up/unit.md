@@ -3,17 +3,15 @@ title: Delete a file
 init:
   - name: scatter_junk
     run: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
-      echo scrap > "$HOME_DIR/junk.tmp"
-      chown "$GYM_USER" "$HOME_DIR/junk.tmp"
+      echo scrap > "$GYM_USER_HOME/junk.tmp"
+      chown "$GYM_USER" "$GYM_USER_HOME/junk.tmp"
 tasks:
   junk_gone:
     check: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
       # Baseline: the file must exist before we watch for its removal,
       # otherwise this check would pass without the student doing anything.
-      wait_file --timeout 15 "$HOME_DIR/junk.tmp" ||  hint_exit "junk.tmp is not in your home directory (was it removed before the rep started?). Reset the rep to re-create it."
-      wait_file_gone "$HOME_DIR/junk.tmp"
+      wait_file --timeout 15 "$GYM_USER_HOME/junk.tmp" ||  hint_exit "junk.tmp is not in your home directory (was it removed before the rep started?). Reset the rep to re-create it."
+      wait_file_gone "$GYM_USER_HOME/junk.tmp"
     hint: |
       echo "rm followed by the path removes a file. There is no trash bin on the command line - gone is gone."
     solve: |

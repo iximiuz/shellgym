@@ -23,8 +23,7 @@ tasks:
   fetched:
     needs: [inspected]
     check: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
-      wait_file_contains "$HOME_DIR/greeting.txt" "greeting: $GREETING"
+      wait_file_contains "$GYM_USER_HOME/greeting.txt" "greeting: $GREETING"
     hint: |
       echo "Fetch http://127.0.0.1:<the-port-you-found>/ with curl and redirect the response into ~/greeting.txt."
     solve: |

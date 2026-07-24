@@ -131,11 +131,17 @@ Rules and behaviors:
 
 ## Built-in checks (on PATH inside check/hint scripts)
 
-- `wait_cwd <path|regex>` - ANY of the student's open shells has the
-  given working directory (read live from `/proc/<pid>/cwd`). The
-  argument is an exact absolute path; if it contains regex
+- `wait_cwd [shell-pid] <path|regex>` - a student shell has the given
+  working directory (read live from `/proc/<pid>/cwd`): without a PID
+  any open shell may match, with a PID only that specific shell
+  counts. The path is an exact absolute path; if it contains regex
   metacharacters and compiles, it is matched against the whole path
-  as a regex, auto-anchored `^(...)$`
+  as a regex, auto-anchored `^(...)$`. On success prints the matched
+  shell's PID - publish it as a task var when a later task or a
+  dependent unit must watch the SAME shell:
+  `TRAVELER=$(wait_cwd "/tmp/gym/$D") || exit 1` then
+  `set_var TRAVELER "$TRAVELER"` in one unit, and
+  `wait_cwd "$TRAVELER" "$GYM_USER_HOME"` in the unit that `needs:` it
 - `wait_exec <regex>` - the student ran a command matching regex
   (matched against full argv; only tty-attached processes of the
   observed user, executed after the unit's activation, count; matched
@@ -151,14 +157,24 @@ Rules and behaviors:
 - `wait_proc <regex>` / `wait_proc_gone <regex>` (full-cmdline match,
   all processes on the box)
 - `wait_port <port>` / `wait_port_free <port>` (listening TCP, v4+v6)
-- `shell_cwd` - prints the cwd of the most recently started student
-  shell (for hint scripts; note: `wait_cwd` accepts a match in any
-  shell, so the two may disagree when several terminals are open)
+- `shell_cwd [shell-pid]` - prints the cwd of the most recently started
+  student shell, or of the shell with the given PID (for hint scripts;
+  note: `wait_cwd` accepts a match in any shell, so the two may
+  disagree when several terminals are open)
 - `shells` - lists all observed shells, one per line (`PID exe tty
   cwd`, most recent first); a debugging aid
 - `hint_exit [task] <message>` - pushes a hint to the UI immediately
   and TERMINATES the check script with exit code 42; the task defaults
   to the current one (`$GYM_TASK`)
+- `set_var <NAME> <value>` - publishes a task var on the current unit:
+  it joins the unit's vars, exported into later runs of the unit's own
+  scripts and into scripts of units that `needs:` this unit (persists
+  across daemon restarts; cleared by unit reset). THE way to pass
+  small values between tasks and units - never stash them in files;
+  use a file only for BLOB-like data (content, not a value). Task vars
+  are script-env only: not interpolatable in markdown, not usable with
+  `from:`. `GYM_` prefix reserved. Note it exits 0 on success, so do
+  not let it be the last command after an unverified condition
 
 All `wait_*` block until met; add `--timeout <sec>` for a bound or
 `--now` for a single instant evaluation (the form for level tasks).
@@ -167,9 +183,9 @@ shell:
 
 ```yaml
 check: |
-  wait_file --timeout 15 "$HOME_DIR/junk.tmp" || \
+  wait_file --timeout 15 "$GYM_USER_HOME/junk.tmp" || \
     hint_exit "junk.tmp never appeared - was the init OK?"
-  wait_file_gone "$HOME_DIR/junk.tmp"
+  wait_file_gone "$GYM_USER_HOME/junk.tmp"
 ```
 
 Choosing: verify **effects** (`wait_file`, `wait_port`, ...) over
@@ -181,8 +197,11 @@ correct - keep `wait_exec` regexes permissive.
 All scripts (`init:`, `check:`, `hint:`) run as root under
 `bash -o pipefail`, each in its own session (no controlling tty - the
 guard that keeps checks from matching themselves).
-Environment available to scripts: unit vars, `GYM_UNIT`, `GYM_TASK`,
-`GYM_USER` (observed login user). `hint:` scripts additionally get
+Environment available to scripts: unit vars (including task vars from
+`set_var` and the vars of every unit listed in `needs:`), `GYM_UNIT`,
+`GYM_TASK`, `GYM_USER` (observed login user), `GYM_USER_HOME` (that
+user's home directory - never shell out to `getent` for it). `hint:`
+scripts additionally get
 `GYM_TASK_EXIT`, `GYM_TASK_STDOUT`, `GYM_TASK_STDERR` from the last
 failed check run - enough to diagnose why it failed and say something
 specific. Hint script stdout replaces the task's hint area live

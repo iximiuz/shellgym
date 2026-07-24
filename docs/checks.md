@@ -22,10 +22,12 @@ talks to the daemon over its unix socket (see
   daemon and wake up on the next matching exec event.
 - **Regex flavor** is Go's RE2 (no backreferences). Patterns with shell
   metacharacters must be quoted.
-- **Environment**: the engine exports the unit's vars plus `GYM_UNIT`,
-  `GYM_TASK`, `GYM_USER` (the observed login user), `GYM_SINCE_SEQ`
-  (exec-event horizon, see `wait_exec`), and `GYM_SOCK` (the daemon
-  socket path) into every script. `hint:` scripts additionally get
+- **Environment**: the engine exports the unit's vars (including task
+  vars published with `set_var`, and the vars of every unit listed in
+  the unit's `needs:`) plus `GYM_UNIT`, `GYM_TASK`, `GYM_USER` (the
+  observed login user), `GYM_USER_HOME`, `GYM_SINCE_SEQ` (exec-event
+  horizon, see `wait_exec`), and `GYM_SOCK` (the daemon socket path)
+  into every script. `hint:` scripts additionally get
   `GYM_TASK_EXIT`, `GYM_TASK_STDOUT`, `GYM_TASK_STDERR` from the last
   failed check run (streams clipped to 1 KiB).
 
@@ -33,18 +35,18 @@ Checks compose freely with shell:
 
 ```yaml
 check: |
-  wait_file --timeout 15 "$HOME_DIR/junk.tmp" || \
+  wait_file --timeout 15 "$GYM_USER_HOME/junk.tmp" || \
     hint_exit "junk.tmp never appeared - have you tried creating it?"
-  wait_file_gone "$HOME_DIR/junk.tmp"
+  wait_file_gone "$GYM_USER_HOME/junk.tmp"
 ```
 
 ## Shell state
 
-### `shell_cwd`
+### `shell_cwd [shell-pid]`
 
-Prints the current working directory of the **most recently started**
-interactive shell of the observed user. Non-blocking. Exits 2 if no
-shell is found. Typical use is inside `hint:` scripts:
+Prints the current working directory of the interactive shell of the observed user -
+if no shell PID provided, the **most recently started** shell is used.
+Non-blocking. Exits 2 if no (matching) shell is found. Typical use is inside `hint:` scripts:
 
 ```yaml
 hint: |
@@ -57,21 +59,45 @@ Lists all observed interactive shells, one per line, tab-separated:
 `PID exe tty cwd`, most recently started first. A debugging aid; rarely
 needed in real checks.
 
-### `wait_cwd <path-or-regex>`
+### `wait_cwd [shell-pid] <path-or-regex>`
 
-Waits until **any** of the observed user's interactive shells has the
-given working directory. The argument is an exact absolute path; if it
-contains regex metacharacters (`?*[](|^$+`) and compiles, it is treated
-as a regex matched against the whole path (auto-anchored as `^(...)$`):
+Waits until an interactive shell of the observed user has the given
+working directory. Which shell counts is picked by the optional first
+argument:
+
+- `wait_cwd <path>` - **any** open shell may match (the student may
+  legitimately have several terminals open);
+- `wait_cwd <shell-pid> <path>` - only the shell with that **specific**
+  PID counts.
+
+The path is an exact absolute path; if it contains regex metacharacters
+(`?*[](|^$+`) and compiles, it is treated as a regex matched against the
+whole path (auto-anchored as `^(...)$`):
 
 ```yaml
 check: |
   wait_cwd "/tmp/gym/$DIRNAME"          # exact
   wait_cwd "/tmp/gym/(alpha|bravo)"     # regex
+  wait_cwd "$TRAVELER" "$GYM_USER_HOME" # only this one shell
 ```
 
 The cwd is read live from `/proc/<pid>/cwd`, so this reflects where the
 shell is *now*, not where it has been.
+
+On success `wait_cwd` prints the PID of the shell that matched. Publish
+it as a [task var](#task-vars) when a later task (or a dependent unit)
+must track the **same** shell instead of accepting a match in any
+terminal:
+
+```yaml
+# earlier unit
+check: |
+  TRAVELER=$(wait_cwd "/tmp/gym/$DIRNAME") || exit 1
+  set_var TRAVELER "$TRAVELER"
+# dependent unit (needs: [earlier-unit])
+check: |
+  wait_cwd "$TRAVELER" "$GYM_USER_HOME"
+```
 
 ## Command execution
 
@@ -141,8 +167,8 @@ baseline so the task cannot auto-solve before the setup ran:
 
 ```yaml
 check: |
-  wait_file --timeout 15 "$HOME_DIR/junk.tmp" || exit 1
-  wait_file_gone "$HOME_DIR/junk.tmp"
+  wait_file --timeout 15 "$GYM_USER_HOME/junk.tmp" || exit 1
+  wait_file_gone "$GYM_USER_HOME/junk.tmp"
 ```
 
 ### `wait_file_contains <path> <regex>`
@@ -153,7 +179,7 @@ lines - `'^done$'` means "a line that is exactly `done`":
 
 ```yaml
 check: |
-  wait_file_contains "$HOME_DIR/notes.txt" "^$TOKEN$"
+  wait_file_contains "$GYM_USER_HOME/notes.txt" "^$TOKEN$"
 ```
 
 ## Processes
@@ -202,6 +228,36 @@ check: |
 
 Only listening TCP sockets are considered - UDP and established
 connections are invisible to these checks.
+
+## Task vars
+
+### `set_var <NAME> <value>`
+
+Persists a **task var** on the current unit. The var joins the unit's
+vars: it is exported into every subsequent run of the unit's own
+scripts, and into the scripts of any unit that declares this unit in
+its `needs:`. Vars survive daemon restarts and are cleared by a unit
+reset, exactly like frontmatter vars.
+
+This is the way to pass small values between tasks and on to dependent
+units - which shell did it, a generated token, a chosen port. Do **not**
+stash such values in files; reach for a file only when the data is
+BLOB-like (a log to diff, a directory tree, anything that is content
+rather than a value).
+
+```yaml
+check: |
+  TRAVELER=$(wait_cwd "/tmp/gym/$DIRNAME") || exit 1
+  set_var TRAVELER "$TRAVELER"
+```
+
+Task vars are script-environment only: their value does not exist when
+the unit's markdown is rendered, so they cannot be interpolated into
+the body (`${...}`) or referenced with `vars: { from: ... }`. Names
+follow the usual `[A-Za-z_][A-Za-z0-9_]*` shape; the `GYM_` prefix is
+reserved. Exits non-zero on error, but note that a *successful*
+`set_var` exits 0 - end the check with it only when everything before
+it already proved the condition.
 
 ## Hints
 

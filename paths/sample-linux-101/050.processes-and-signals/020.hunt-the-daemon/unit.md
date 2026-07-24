@@ -33,16 +33,14 @@ init:
 tasks:
   pid_found:
     check: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
       PID=$(pgrep -f "$DAEMON-gym-decoy" | head -1)
       if [ -z "$PID" ]; then
         echo "decoy process is not running" >&2
         exit 2
       fi
-      wait_file_contains "$HOME_DIR/daemon.pid" "^$PID\s*$"
+      wait_file_contains "$GYM_USER_HOME/daemon.pid" "^$PID\s*$"
     hint: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
-      if [ -f "$HOME_DIR/daemon.pid" ]; then
+      if [ -f "$GYM_USER_HOME/daemon.pid" ]; then
         echo "daemon.pid exists but does not hold the right PID. Find the process named ${DAEMON}-gym-decoy - pgrep -f matches against the full command line."
       else
         echo "List processes with ps aux (or ask pgrep directly), find ${DAEMON}-gym-decoy, and save its PID into ~/daemon.pid."

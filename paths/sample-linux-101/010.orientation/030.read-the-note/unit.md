@@ -5,9 +5,8 @@ vars:
 init:
   - name: drop_note
     run: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
-      printf 'A note from Shell Gym.\nYour code word is: %s\n' "$SECRET" > "$HOME_DIR/note.txt"
-      chown "$GYM_USER" "$HOME_DIR/note.txt"
+      printf 'A note from Shell Gym.\nYour code word is: %s\n' "$SECRET" > "$GYM_USER_HOME/note.txt"
+      chown "$GYM_USER" "$GYM_USER_HOME/note.txt"
 tasks:
   read_note:
     check: |

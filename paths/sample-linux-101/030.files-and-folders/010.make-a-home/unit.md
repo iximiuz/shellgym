@@ -5,8 +5,7 @@ vars:
 tasks:
   dir_created:
     check: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
-      wait_file "$HOME_DIR/$PROJECT"
+      wait_file "$GYM_USER_HOME/$PROJECT"
     hint: |
       echo "Directories are made with mkdir followed by the name. Run it from your home directory, or give the full path."
     solve: |

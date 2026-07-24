@@ -3,23 +3,21 @@ title: Adjust file permissions
 init:
   - name: seed_files
     run: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
-      echo "the launch code is 0000" > "$HOME_DIR/secret.txt"
-      chmod 644 "$HOME_DIR/secret.txt"
-      printf '#!/bin/sh\necho "greetings from greet.sh" > "$HOME/greet.done"\n' > "$HOME_DIR/greet.sh"
-      chmod 644 "$HOME_DIR/greet.sh"
-      rm -f "$HOME_DIR/greet.done"
-      chown "$GYM_USER" "$HOME_DIR/secret.txt" "$HOME_DIR/greet.sh"
+      echo "the launch code is 0000" > "$GYM_USER_HOME/secret.txt"
+      chmod 644 "$GYM_USER_HOME/secret.txt"
+      printf '#!/bin/sh\necho "greetings from greet.sh" > "$HOME/greet.done"\n' > "$GYM_USER_HOME/greet.sh"
+      chmod 644 "$GYM_USER_HOME/greet.sh"
+      rm -f "$GYM_USER_HOME/greet.done"
+      chown "$GYM_USER" "$GYM_USER_HOME/secret.txt" "$GYM_USER_HOME/greet.sh"
 tasks:
   lock_secret:
     # The check's own poll loop runs up to ~50s before falling through to
     # hint_exit; the attempt timeout must exceed that or the hint never fires.
     timeout: 60
     check: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
       PERMS=""
       for i in $(seq 1 50); do
-        PERMS=$(stat -c %a "$HOME_DIR/secret.txt" 2>/dev/null || true)
+        PERMS=$(stat -c %a "$GYM_USER_HOME/secret.txt" 2>/dev/null || true)
         [ "$PERMS" = "600" ] && exit 0
         sleep 1
       done
@@ -34,8 +32,7 @@ tasks:
     # wait_file blocks 45s before hint_exit; see lock_secret.
     timeout: 60
     check: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
-      wait_file --timeout 45 "$HOME_DIR/greet.done" || {
+      wait_file --timeout 45 "$GYM_USER_HOME/greet.done" || {
         hint_exit run_greeter "No greet.done yet. Check ls -l ~/greet.sh - does it have an x among the permissions? Only then can ./greet.sh run."
       }
     solve: |

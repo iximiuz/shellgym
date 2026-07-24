@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -106,6 +107,9 @@ type Engine struct {
 	statuses   map[string]string // task name -> status (active unit only)
 	sinceSeq   uint64
 	wg         sync.WaitGroup
+
+	homeOnce sync.Once
+	homeDir  string
 }
 
 func New(p *content.Path, st *state.Store, b *bus.Bus, w *ExecWatcher, opts Options) *Engine {
@@ -392,18 +396,76 @@ func (e *Engine) publishTask(unit, task, status string) {
 	e.Bus.Publish(bus.Event{Type: "task", Data: TaskEvent{Unit: unit, Task: task, Status: status}})
 }
 
-// taskEnv builds the environment for task scripts.
+// taskEnv builds the environment for task scripts. It is rebuilt for every
+// script run so that task vars (set_var) published after activation are
+// seen: vars of the units this unit `needs:` first, then the unit's own
+// vars (the activation-time snapshot, refreshed from the store).
 func (e *Engine) taskEnv(u *content.Unit, taskName string, vars map[string]string) map[string]string {
 	env := map[string]string{
 		"GYM_UNIT":      u.ID,
 		"GYM_TASK":      taskName,
 		"GYM_USER":      e.Path.ShellUser,
+		"GYM_USER_HOME": e.userHome(),
 		"GYM_SINCE_SEQ": fmt.Sprintf("%d", e.currentSinceSeq()),
 	}
+	e.Store.View(func(d *state.Data) {
+		for _, need := range u.Front.Needs {
+			if us, ok := d.Units[u.ModuleID+"/"+need]; ok {
+				for k, v := range us.Vars {
+					env[k] = v
+				}
+			}
+		}
+	})
 	for k, v := range vars {
 		env[k] = v
 	}
+	e.Store.View(func(d *state.Data) {
+		if us, ok := d.Units[u.ID]; ok {
+			for k, v := range us.Vars {
+				env[k] = v
+			}
+		}
+	})
 	return env
+}
+
+var varNameRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
+// SetVar persists a task var on the unit (used by the set_var built-in via
+// the check API). The var joins the unit's vars: exported into subsequent
+// task-script runs of this unit and of units that `needs:` it.
+func (e *Engine) SetVar(unit, name, value string) error {
+	if e.Path.Unit(unit) == nil {
+		return fmt.Errorf("unknown unit %q", unit)
+	}
+	if !varNameRe.MatchString(name) {
+		return fmt.Errorf("invalid var name %q", name)
+	}
+	if strings.HasPrefix(name, "GYM_") {
+		return fmt.Errorf("var name %q: the GYM_ prefix is reserved", name)
+	}
+	return e.Store.Update(func(d *state.Data) {
+		us := d.Unit(unit)
+		if us.Vars == nil {
+			us.Vars = map[string]string{}
+		}
+		us.Vars[name] = value
+	})
+}
+
+// userHome resolves (once) the observed user's home directory, exported to
+// task scripts as GYM_USER_HOME.
+func (e *Engine) userHome() string {
+	e.homeOnce.Do(func() {
+		home, err := lookupHome(e.Path.ShellUser)
+		if err != nil {
+			log.Printf("engine: resolve home of %q: %v", e.Path.ShellUser, err)
+			return
+		}
+		e.homeDir = home
+	})
+	return e.homeDir
 }
 
 func (e *Engine) currentSinceSeq() uint64 {

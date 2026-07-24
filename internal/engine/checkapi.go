@@ -21,14 +21,19 @@ type checkAPI struct {
 	shellUser string
 	shellUID  int
 	hintSink  HintSink
+	varSink   VarSink
 }
 
 // HintSink receives hints posted by the hint_exit built-in from inside
 // task scripts.
 type HintSink func(unit, task, message string) error
 
+// VarSink receives task vars posted by the set_var built-in from inside
+// task scripts.
+type VarSink func(unit, name, value string) error
+
 // ServeCheckAPI starts the unix-socket listener at sockPath.
-func ServeCheckAPI(sockPath, shellUser string, watcher *ExecWatcher, hints HintSink) error {
+func ServeCheckAPI(sockPath, shellUser string, watcher *ExecWatcher, hints HintSink, vars VarSink) error {
 	uid, err := lookupUID(shellUser)
 	if err != nil {
 		return fmt.Errorf("shell user %q: %w", shellUser, err)
@@ -41,10 +46,11 @@ func ServeCheckAPI(sockPath, shellUser string, watcher *ExecWatcher, hints HintS
 	if err := os.Chmod(sockPath, 0o600); err != nil {
 		return err
 	}
-	api := &checkAPI{watcher: watcher, shellUser: shellUser, shellUID: uid, hintSink: hints}
+	api := &checkAPI{watcher: watcher, shellUser: shellUser, shellUID: uid, hintSink: hints, varSink: vars}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/shells", api.handleShells)
 	mux.HandleFunc("/hint", api.handleHint)
+	mux.HandleFunc("/vars", api.handleSetVar)
 	mux.HandleFunc("/exec/seq", api.handleSeq)
 	mux.HandleFunc("/exec/wait", api.handleExecWait)
 	mux.HandleFunc("/exec/snapshot", api.handleSnapshot)
@@ -155,6 +161,34 @@ func (a *checkAPI) handleHint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := a.hintSink(req.Unit, req.Task, req.Message); err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	writeJSON(w, map[string]bool{"ok": true})
+}
+
+// SetVarRequest is posted by the set_var built-in.
+type SetVarRequest struct {
+	Unit  string `json:"unit"`
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+func (a *checkAPI) handleSetVar(w http.ResponseWriter, r *http.Request) {
+	var req SetVarRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	if req.Unit == "" || req.Name == "" {
+		http.Error(w, "unit and name are required", 400)
+		return
+	}
+	if a.varSink == nil {
+		http.Error(w, "task vars not supported", 501)
+		return
+	}
+	if err := a.varSink(req.Unit, req.Name, req.Value); err != nil {
 		http.Error(w, err.Error(), 400)
 		return
 	}

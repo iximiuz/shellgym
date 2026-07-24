@@ -5,11 +5,9 @@ vars:
 tasks:
   wrote_file:
     check: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
-      wait_file_contains "$HOME_DIR/motto.txt" "^$MOTTO$"
+      wait_file_contains "$GYM_USER_HOME/motto.txt" "^$MOTTO$"
     hint: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
-      if [ -f "$HOME_DIR/motto.txt" ]; then
+      if [ -f "$GYM_USER_HOME/motto.txt" ]; then
         echo "motto.txt exists but its content is not exactly '${MOTTO}'. Overwrite it with a fresh redirect (a single > replaces the whole file)."
       else
         echo "echo prints its arguments; the > arrow captures that output into a file instead of the screen."

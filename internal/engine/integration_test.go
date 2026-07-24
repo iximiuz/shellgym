@@ -113,7 +113,7 @@ func newTestEnv(t *testing.T, units map[string]string) *testEnv {
 		HintInterval: 1 * time.Second,
 	})
 	t.Cleanup(eng.Shutdown)
-	if err := ServeCheckAPI(sockPath, path.ShellUser, watcher, eng.PublishHint); err != nil {
+	if err := ServeCheckAPI(sockPath, path.ShellUser, watcher, eng.PublishHint, eng.SetVar); err != nil {
 		t.Fatal(err)
 	}
 	return &testEnv{t: t, eng: eng, events: ch, dir: dir}
@@ -255,6 +255,73 @@ func TestEngineSeesShellCwd(t *testing.T) {
 
 	if !te.waitEvent("unit", "m/go-there", "completed", 15*time.Second) {
 		t.Fatal("cwd change not detected")
+	}
+}
+
+// The traveler pair exercises the shell-handoff pattern: wait_cwd reports
+// the PID of the shell that matched, the check publishes it with set_var,
+// and a dependent unit's check (which inherits the vars of its needs:
+// units) pins wait_cwd to that same shell. Also covers GYM_USER_HOME.
+const travelUnit = `---
+title: Walk away
+init:
+  - name: prep
+    run: |
+      mkdir -p /tmp/shellgym-traveler-test
+tasks:
+  away:
+    check: |
+      TRAVELER=$(wait_cwd /tmp/shellgym-traveler-test) || exit 1
+      set_var TRAVELER "$TRAVELER"
+---
+::task{name="away"}
+Waiting...
+::
+`
+
+const returnUnit = `---
+title: Walk back
+needs: [travel]
+tasks:
+  home:
+    check: |
+      [ -n "$TRAVELER" ] || exit 1
+      [ -n "$GYM_USER_HOME" ] || exit 1
+      wait_cwd "$TRAVELER" "$GYM_USER_HOME"
+---
+::task{name="home"}
+Waiting...
+::
+`
+
+func TestEngineTracksSpecificShell(t *testing.T) {
+	te := newTestEnv(t, map[string]string{
+		"010.m/010.travel/unit.md": travelUnit,
+		"010.m/020.return/unit.md": returnUnit,
+	})
+	defer os.RemoveAll("/tmp/shellgym-traveler-test")
+
+	if err := te.eng.ActivateUnit("m/travel"); err != nil {
+		t.Fatal(err)
+	}
+	sh := newStudentShell(t)
+	sh.Type("cd /tmp/shellgym-traveler-test")
+	if !te.waitEvent("unit", "m/travel", "completed", 15*time.Second) {
+		t.Fatal("travel unit did not complete")
+	}
+
+	if err := te.eng.ActivateUnit("m/return"); err != nil {
+		t.Fatal(err)
+	}
+	// GYM_USER_HOME comes from the passwd entry, so send the shell there
+	// explicitly rather than relying on $HOME matching it.
+	me, err := user.Current()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sh.Type(fmt.Sprintf("cd %q", me.HomeDir))
+	if !te.waitEvent("unit", "m/return", "completed", 15*time.Second) {
+		t.Fatal("pinned-shell cwd change not detected")
 	}
 }
 

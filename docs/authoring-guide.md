@@ -49,7 +49,8 @@ the student typing real commands until the motions become automatic.
   exercise; init scripts run and vars resolve once per activation.
 - **Observed user** - the login user declared as `shellUser` in
   `path.yaml`; only this user's shells and commands count as student
-  activity (exported to scripts as `$GYM_USER`).
+  activity (exported to scripts as `$GYM_USER`, with the home directory
+  as `$GYM_USER_HOME`).
 - **Solve script** - the hidden reference solution, typed into a real
   pty shell by `shellgym solve` during acceptance testing.
 
@@ -152,7 +153,19 @@ Vars resolve once, when the unit is first rendered or activated, and
 persist for the whole attempt (across daemon restarts too). They are
 exported into every `init:`/`check:`/`hint:` script as environment
 variables and interpolate into the markdown body, titles, and component
-text as `${DIRNAME}`.
+text as `${DIRNAME}`. Scripts additionally see the vars of every unit
+listed in the unit's `needs:`.
+
+**Task vars.** A check can also publish a var at runtime with the
+`set_var <NAME> <value>` built-in - for values that only exist once the
+student acts, like the PID of the shell that completed a step (see
+`wait_cwd` in [checks.md](checks.md)). Task vars join the unit's vars:
+later runs of the unit's own scripts and the scripts of dependent
+(`needs:`) units see them in the environment. They are the way to pass
+values between tasks and units - never stash such values in files; use
+a file only when the data is BLOB-like (content rather than a value).
+Because their value does not exist at render time, task vars cannot be
+interpolated into markdown or referenced with `from:`.
 
 ### Init scripts
 
@@ -164,7 +177,9 @@ idempotent.
 
 Conventions that save debugging time:
 
-- create files as root, then `chown` them to `$GYM_USER`;
+- create files as root, then `chown` them to `$GYM_USER`; scenes in the
+  student's home go under `$GYM_USER_HOME` (the observed user's home
+  directory, resolved by the engine);
 - student-owned *processes* need `systemd-run --uid=$GYM_USER` and a
   named sh wrapper script; argv0 tricks like `exec -a` break on
   multi-call coreutils distros;
@@ -202,8 +217,8 @@ confirm it existed, or it auto-solves before the scene is even built:
 
 ```yaml
 check: |
-  wait_file --timeout 15 "$HOME_DIR/junk.tmp" || exit 1
-  wait_file_gone "$HOME_DIR/junk.tmp"
+  wait_file --timeout 15 "$GYM_USER_HOME/junk.tmp" || exit 1
+  wait_file_gone "$GYM_USER_HOME/junk.tmp"
 ```
 
 ### Hints

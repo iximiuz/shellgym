@@ -13,15 +13,13 @@ init:
 tasks:
   kit_dir:
     check: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
-      wait_file "$HOME_DIR/$KIT"
+      wait_file "$GYM_USER_HOME/$KIT"
     solve: |
       mkdir -p ~/$KIT
   manifest_copied:
     needs: [kit_dir]
     check: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
-      wait_file "$HOME_DIR/$KIT/manifest.txt"
+      wait_file "$GYM_USER_HOME/$KIT/manifest.txt"
     hint: |
       echo "The original manifest lives at /tmp/manifest.txt. Copy it, keeping the name."
     solve: |
@@ -29,8 +27,7 @@ tasks:
   specials_counted:
     needs: [manifest_copied]
     check: |
-      HOME_DIR=$(getent passwd "$GYM_USER" | cut -d: -f6)
-      wait_file_contains "$HOME_DIR/$KIT/specials.txt" "^7\s*$"
+      wait_file_contains "$GYM_USER_HOME/$KIT/specials.txt" "^7\s*$"
     hint: |
       echo "Count the manifest lines mentioning '${WORD}' and put that number into specials.txt. A pipe from a filter into a line counter did this for you once before."
     solve: |
