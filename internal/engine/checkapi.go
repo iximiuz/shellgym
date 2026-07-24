@@ -85,9 +85,11 @@ func (a *checkAPI) handleExecWait(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 400)
 		return
 	}
+	// Cap the wait: attempts are killed by the engine's task timeout long
+	// before an hour, and an uncapped wait would pin a handler goroutine.
 	timeout := time.Duration(req.TimeoutSec * float64(time.Second))
-	if timeout <= 0 {
-		timeout = 24 * time.Hour
+	if timeout <= 0 || timeout > time.Hour {
+		timeout = time.Hour
 	}
 	var argvRe, envRe *regexp.Regexp
 	var err error
@@ -127,7 +129,7 @@ func (a *checkAPI) handleExecWait(w http.ResponseWriter, r *http.Request) {
 		}
 		return true
 	}
-	ev, ok := a.watcher.WaitMatch(req.After, time.Now().Add(timeout), match)
+	ev, ok := a.watcher.WaitMatch(r.Context(), req.After, time.Now().Add(timeout), match)
 	writeJSON(w, ExecWaitResponse{Matched: ok, Event: ev})
 }
 

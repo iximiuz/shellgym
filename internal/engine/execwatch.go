@@ -1,10 +1,12 @@
 package engine
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"log"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -87,26 +89,38 @@ func (w *ExecWatcher) Seq() uint64 {
 }
 
 // WaitMatch blocks until an event with Seq > after matches fn, returning it.
-// Returns false when the deadline passes or the watcher closes.
-func (w *ExecWatcher) WaitMatch(after uint64, deadline time.Time, fn func(ExecEvent) bool) (ExecEvent, bool) {
+// Returns false when the deadline passes, ctx is canceled (e.g. the waiting
+// check script was killed and its API connection dropped - without this,
+// every killed attempt would leak a waiter that keeps scanning the ring on
+// each broadcast), or the watcher closes.
+func (w *ExecWatcher) WaitMatch(ctx context.Context, after uint64, deadline time.Time, fn func(ExecEvent) bool) (ExecEvent, bool) {
 	timer := time.AfterFunc(time.Until(deadline), func() {
 		w.mu.Lock()
 		w.cond.Broadcast()
 		w.mu.Unlock()
 	})
 	defer timer.Stop()
+	stop := context.AfterFunc(ctx, func() {
+		w.mu.Lock()
+		w.cond.Broadcast()
+		w.mu.Unlock()
+	})
+	defer stop()
 
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	scanned := after
 	for {
-		for _, ev := range w.ring {
-			if ev.Seq > scanned && fn(ev) {
+		// The ring ascends by Seq - skip the already-scanned prefix instead
+		// of re-running fn over all 4096 entries on every wake-up.
+		i := sort.Search(len(w.ring), func(i int) bool { return w.ring[i].Seq > scanned })
+		for _, ev := range w.ring[i:] {
+			if fn(ev) {
 				return ev, true
 			}
 		}
 		scanned = w.seq
-		if w.closed || time.Now().After(deadline) {
+		if w.closed || ctx.Err() != nil || time.Now().After(deadline) {
 			return ExecEvent{}, false
 		}
 		w.cond.Wait()

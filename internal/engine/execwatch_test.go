@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"os/exec"
 	"strings"
 	"testing"
@@ -32,7 +33,7 @@ func TestWatcherSeesExec(t *testing.T) {
 	}
 	defer func() { _ = cmd.Process.Kill(); _, _ = cmd.Process.Wait() }()
 
-	ev, ok := w.WaitMatch(after, time.Now().Add(5*time.Second), func(ev ExecEvent) bool {
+	ev, ok := w.WaitMatch(context.Background(), after, time.Now().Add(5*time.Second), func(ev ExecEvent) bool {
 		return strings.Contains(strings.Join(ev.Argv, " "), marker)
 	})
 	if !ok {
@@ -46,7 +47,7 @@ func TestWatcherSeesExec(t *testing.T) {
 func TestWaitMatchTimeout(t *testing.T) {
 	w := NewExecWatcher()
 	start := time.Now()
-	_, ok := w.WaitMatch(w.Seq(), time.Now().Add(600*time.Millisecond), func(ExecEvent) bool {
+	_, ok := w.WaitMatch(context.Background(), w.Seq(), time.Now().Add(600*time.Millisecond), func(ExecEvent) bool {
 		return false
 	})
 	if ok {
@@ -61,10 +62,33 @@ func TestWaitMatchSeesBufferedEvents(t *testing.T) {
 	w := NewExecWatcher()
 	w.publish(ExecEvent{PID: 1, Argv: []string{"earlier"}})
 	// A match request with after=0 must see the already-buffered event.
-	ev, ok := w.WaitMatch(0, time.Now().Add(time.Second), func(ev ExecEvent) bool {
+	ev, ok := w.WaitMatch(context.Background(), 0, time.Now().Add(time.Second), func(ev ExecEvent) bool {
 		return ev.Argv[0] == "earlier"
 	})
 	if !ok || ev.PID != 1 {
 		t.Fatalf("buffered event not found: %+v ok=%v", ev, ok)
+	}
+}
+
+// A killed check script drops its API connection; the waiter must unblock on
+// that cancellation instead of lingering until the deadline (a leak that,
+// accumulated, made every broadcast crawl and delayed live matches).
+func TestWaitMatchUnblocksOnContextCancel(t *testing.T) {
+	w := NewExecWatcher()
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan bool, 1)
+	go func() {
+		_, ok := w.WaitMatch(ctx, w.Seq(), time.Now().Add(time.Hour), func(ExecEvent) bool { return false })
+		done <- ok
+	}()
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+	select {
+	case ok := <-done:
+		if ok {
+			t.Fatal("unexpected match")
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("WaitMatch did not unblock on context cancellation")
 	}
 }

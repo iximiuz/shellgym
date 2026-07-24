@@ -508,7 +508,17 @@ function connectWS() {
     $('#conn-banner').hidden = true;
     resync().catch(() => {});
   };
+  // Keepalive: a throwaway client->server frame makes a half-dead connection
+  // (proxy silently dropped it) error out within seconds, so onclose fires
+  // and the reconnect + resync path heals the tab instead of it going
+  // silently stale. The server reads and discards inbound frames.
+  const ka = setInterval(() => {
+    if (ws.readyState === WebSocket.OPEN) {
+      try { ws.send('ka'); } catch { /* close handler takes it from here */ }
+    }
+  }, 15000);
   ws.onclose = () => {
+    clearInterval(ka);
     $('#conn-banner').hidden = false;
     setTimeout(connectWS, 1500);
   };
