@@ -406,8 +406,12 @@ button { font: inherit; color: inherit; }
 .task-box[data-status="unsatisfied"] .task-section-active { display: block; }
 .task-box[data-status="completed"] .task-section-completed,
 .task-box[data-status="satisfied"] .task-section-completed { display: block; }
-.task-box[data-status="completed"]:not(:has(.task-section-completed)) .task-section-active,
-.task-box[data-status="satisfied"]:not(:has(.task-section-completed)) .task-section-active { display: block; }
+/* .no-completed-section is set by app.js at scene build; an equivalent
+   :not(:has(.task-section-completed)) selector broke style invalidation of
+   the data-status flip in some Chrome builds (box stayed visually
+   "running" until an unrelated recalc, e.g. hover). */
+.task-box[data-status="completed"].no-completed-section .task-section-active,
+.task-box[data-status="satisfied"].no-completed-section .task-section-active { display: block; }
 .task-box[data-status="completed"] .task-text,
 .task-box[data-status="satisfied"] .task-text { color: var(--ok); }
 .task-section-hint {

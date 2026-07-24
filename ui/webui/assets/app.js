@@ -126,6 +126,9 @@ async function buildUnitScene(meta) {
     const box = $(`.task-box[data-task="${cssEsc(t.name)}"]`, el);
     if (!box) continue;
     box.dataset.mode = t.mode;
+    // Replaces a :not(:has(.task-section-completed)) CSS selector - see the
+    // invalidation note in style.css. The section set is static per scene.
+    box.classList.toggle('no-completed-section', !$('.task-section-completed', box));
     if (t.needs?.length) $('.task-text', box).appendChild(tpl('tpl-task-needs'));
     setTaskStatus(box, t.status);
     if (t.hint && !isDone(t.status)) setTaskHint(box, t.hint);
@@ -228,6 +231,11 @@ const isDone = (st) => DONE.has(st);
 
 function setTaskStatus(box, status) {
   box.dataset.status = status;
+  // Some Chrome builds miss the style invalidation for the bare attribute
+  // flip (box kept its "running" look until an unrelated recalc, e.g.
+  // hover). Changing an inherited custom property inline marks the box's
+  // whole subtree style-dirty, forcing the recalc on the next frame.
+  box.style.setProperty('--sg-status', status);
 }
 
 function setTaskHint(box, hint) {
