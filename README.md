@@ -83,7 +83,7 @@ Once started, open the web UI in a browser and follow the learning path:
 open http://127.0.0.1:63636
 ```
 
-## Bring you own learning paths
+## Bring your own learning paths
 
 Shell Gym defines a format, not a curriculum. The bundled [sample-linux-101](paths/sample-linux-101) path is the reference implementation.
 A **learning path** is a directory tree that follows the following structure:
