@@ -80,7 +80,7 @@ sudo systemd-run --unit=shellgym --collect \
 Once started, open the web UI in a browser and follow the learning path:
 
 ```sh
-open http://127.0.0.1:63636
+http://127.0.0.1:63636
 ```
 
 ## Bring your own learning paths
