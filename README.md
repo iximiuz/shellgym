@@ -31,7 +31,7 @@ The Linux "magic" Shell Gym uses to achieve "zere instrumentation" observation:
 - **plain state checks** - files existing, processes running, ports listening.
 
 Because nothing is injected into the shell, the skills practiced in the
-gym transfer one-to-one to any real terminal. See [detection.md](detection.md)
+gym transfer one-to-one to any real terminal. See [detection.md](docs/detection.md)
 for how each mechanism works.
 
 ## Quick start
@@ -108,7 +108,7 @@ paths/<path>/              # path.yaml: id, title, user
 Units can be parametric (randomized directory names, tokens, ports),
 depend on the state left behind by earlier units, and be filtered by
 distro or host capabilities. Full format reference:
-[authoring-guide.md](authoring-guide.md).
+[authoring-guide.md](docs/authoring-guide.md).
 
 ## Progress and resuming
 
@@ -132,8 +132,8 @@ required by the learning path, it may break the restart, and the progress will b
 | `shellgym solve` | Auto-types reference solutions into a real pty shell, simulating a student pass |
 | `shellgym skills` | Prints embedded authoring guides for AI-assisted content work |
 
-Architecture details live in [design.md](design.md).
-See also the [student guide](student-guide.md) for day-to-day usage and the [authoring guide](authoring-guide.md) for learning path creation.
+Architecture details live in [design.md](docs/design.md).
+See also the [student guide](docs/student-guide.md) for day-to-day usage and the [authoring guide](docs/authoring-guide.md) for learning path creation.
 
 ## Documentation
 
