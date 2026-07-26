@@ -16,7 +16,7 @@ and the gym trainer will observe your actions and guide you on the way.
 > [!TIP]
 > Try it online: [Shell Gym Playground](https://labs.iximiuz.com/playgrounds/shellgym) (requires a free sign-up with GitHub)
 
-<video src="https://raw.githubusercontent.com/iximiuz/shellgym/main/docs/assets/shellgym-demo.mp4" controls muted width="100%"></video>
+https://github.com/user-attachments/assets/820ed962-38bf-49c8-92ea-87d51f8e4da4
 
 ## Why it exists
 
