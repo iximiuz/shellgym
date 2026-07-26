@@ -1,5 +1,6 @@
 ---
 title: Start your own listener
+requires: [python3]
 vars:
   MYPORT: { pick: ["8451", "8452", "8453"] }
 tasks:

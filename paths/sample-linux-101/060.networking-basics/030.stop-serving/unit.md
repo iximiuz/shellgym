@@ -1,5 +1,6 @@
 ---
 title: Stop the listener
+requires: [python3]
 needs: [serve-yourself]
 vars:
   MYPORT: { from: serve-yourself.MYPORT }

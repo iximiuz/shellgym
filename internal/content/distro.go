@@ -29,7 +29,8 @@ func DetectDistro() (id string, like []string) {
 
 // DetectCaps returns host capability tags used by unit `requires:` filters.
 // Currently detected: "systemd" - a reachable system systemd instance
-// (absent when there is no reachable systemd instance).
+// (absent when there is no reachable systemd instance); "python3" - a
+// python3 interpreter on PATH.
 func DetectCaps() []string {
 	var caps []string
 	out, err := exec.Command("systemctl", "is-system-running").Output()
@@ -38,6 +39,9 @@ func DetectCaps() []string {
 	// there is no systemd to talk to.
 	if (err == nil || state != "") && state != "offline" {
 		caps = append(caps, "systemd")
+	}
+	if _, err := exec.LookPath("python3"); err == nil {
+		caps = append(caps, "python3")
 	}
 	return caps
 }

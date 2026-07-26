@@ -218,7 +218,7 @@ func TestRealLinux101Path(t *testing.T) {
 		id   string
 		like []string
 	}{{"ubuntu", []string{"debian"}}, {"rocky", []string{"rhel", "centos", "fedora"}}} {
-		p, err := Load(root, d.id, d.like, []string{"systemd"})
+		p, err := Load(root, d.id, d.like, []string{"systemd", "python3"})
 		if err != nil {
 			t.Fatalf("%s: %v", d.id, err)
 		}

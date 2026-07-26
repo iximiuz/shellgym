@@ -1,5 +1,6 @@
 ---
 title: Discover a listening port
+requires: [python3]
 vars:
   PORT: { pick: ["7301", "7302", "7303", "7304"] }
   GREETING: { shell: "head -c4 /dev/urandom | od -An -tx1 | tr -d ' \\n'" }

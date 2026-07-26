@@ -56,8 +56,8 @@ type Frontmatter struct {
 	Labels []string `yaml:"labels"`
 	Needs  []string `yaml:"needs"`
 	// Requires lists host capabilities the unit depends on (currently:
-	// "systemd"). Units whose requirements the runtime lacks are dropped
-	// at load time.
+	// "systemd", "python3"). Units whose requirements the runtime lacks
+	// are dropped at load time.
 	Requires []string           `yaml:"requires"`
 	Vars     map[string]VarSpec `yaml:"vars"`
 	Init     []InitTask         `yaml:"init"`

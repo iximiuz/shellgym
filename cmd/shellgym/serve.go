@@ -119,7 +119,7 @@ func newValidateCmd() *cobra.Command {
 			distro, like := content.DetectDistro()
 			// Validate with ALL capabilities assumed so requires-gated
 			// units are checked too.
-			path, err := content.Load(pathDir, distro, like, []string{"systemd"})
+			path, err := content.Load(pathDir, distro, like, []string{"*"})
 			if err != nil {
 				return err
 			}
