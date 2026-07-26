@@ -501,7 +501,7 @@ button { font: inherit; color: inherit; }
   padding: 10px 14px 0; font-weight: 600; font-size: 13px;
   letter-spacing: .02em; color: var(--accent);
 }
-.tip-icon { width: 16px; height: 16px; flex: 0 0 auto; }
+.tip-icon { width: 18px; height: 18px; flex: 0 0 auto; }
 .tip-box .tip-body { padding: 6px 14px 10px; font-size: 14px; }
 .tip-box .tip-body p { margin: 6px 0; }
 .tip-box .tip-body code { background: color-mix(in srgb, var(--accent-hi) 14%, transparent); }

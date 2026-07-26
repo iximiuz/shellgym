@@ -191,7 +191,7 @@ func renderComponent(c *Component, assetPrefix, defaultTask string) (string, err
 		}
 		return fmt.Sprintf(
 			`<div class="tip-box"><div class="tip-head">%s<span class="tip-title">%s</span></div><div class="tip-body">%s</div></div>`,
-			tipTermSVG, html.EscapeString(title), inner), nil
+			tipBulbSVG, html.EscapeString(title), inner), nil
 	case "image":
 		src := c.Attrs["src"]
 		if !strings.Contains(src, "://") && !strings.HasPrefix(src, "/") {
@@ -206,10 +206,11 @@ func renderComponent(c *Component, assetPrefix, defaultTask string) (string, err
 
 // hintBulbSVG is mdi:lightbulb-on-40 - the lightbulb the labs platform
 // shows on hint boxes (rendered on the right edge of the summary row).
-// tipTermSVG is a terminal-prompt glyph (chevron + underscore) for ::tip
-// callouts - always-visible technique notes (keystrokes, tab completion,
-// history tricks) that sit alongside tasks, unlike the folded ::hint.
-const tipTermSVG = `<svg class="tip-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 17l6-5-6-5"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 19h8"/></svg>`
+// tipBulbSVG is mdi:lightbulb-outline for ::tip callouts - always-visible
+// technique notes (keystrokes, tab completion, history tricks) that sit
+// alongside tasks. Deliberately the plain-outline cousin of the hint box's
+// filled "lightbulb-on" bulb: same family, calmer voice.
+const tipBulbSVG = `<svg class="tip-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12,2A7,7 0 0,1 19,9C19,11.38 17.81,13.47 16,14.74V17A1,1 0 0,1 15,18H9A1,1 0 0,1 8,17V14.74C6.19,13.47 5,11.38 5,9A7,7 0 0,1 12,2M9,21V20H15V21A1,1 0 0,1 14,22H10A1,1 0 0,1 9,21M12,4A5,5 0 0,0 7,9C7,11.05 8.23,12.81 10,13.58V16H14V13.58C15.77,12.81 17,11.05 17,9A5,5 0 0,0 12,4Z"/></svg>`
 
 const hintBulbSVG = `<svg class="hint-bulb" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M1 11h3v2H1zM13 1h-2v3h2zM4.9 3.5L3.5 4.9L5.6 7L7 5.6zm14.2 0L17 5.6L18.4 7l2.1-2.1zM10 22c0 .6.4 1 1 1h2c.6 0 1-.4 1-1v-1h-4zm10-11v2h3v-2zm-2 1c0 2.2-1.2 4.2-3 5.2V19c0 .6-.4 1-1 1h-4c-.6 0-1-.4-1-1v-1.8c-1.8-1-3-3-3-5.2c0-3.3 2.7-6 6-6s6 2.7 6 6m-2 0c0-2.21-1.79-4-4-4s-4 1.79-4 4c0 .74.22 1.41.57 2h6.86c.35-.59.57-1.26.57-2"/></svg>`
 
