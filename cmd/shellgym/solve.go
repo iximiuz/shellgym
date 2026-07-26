@@ -161,8 +161,15 @@ type apiPath struct {
 	Scenes []apiScene `json:"scenes"`
 }
 
+type apiTask struct {
+	Name   string `json:"name"`
+	Mode   string `json:"mode"`
+	Status string `json:"status"`
+}
+
 type apiUnit struct {
-	Vars map[string]string `json:"vars"`
+	Vars  map[string]string `json:"vars"`
+	Tasks []apiTask         `json:"tasks"`
 }
 
 // --- the walk ---------------------------------------------------------------
@@ -247,9 +254,15 @@ func solveUnit(c *apiClient, sh *studentShell, u *content.Unit, timeout time.Dur
 
 	time.Sleep(1 * time.Second) // give init tasks a moment
 
-	// Type each task's solve script in task order.
+	// Type each task's solve script in task order, waiting for the task to
+	// pass before starting the next one - exactly like a student watching
+	// the task box tick. Typing straight through would race the pollers:
+	// a transient state (a cwd passed through, a file created then moved)
+	// can flip faster than a ~200ms poll notices, and a needs-gated task
+	// does not even start checking until its deps complete.
+	deadline := time.Now().Add(timeout)
 	typed := false
-	for _, t := range u.Tasks {
+	for i, t := range u.Tasks {
 		for _, line := range strings.Split(t.Solve, "\n") {
 			line = strings.TrimSpace(line)
 			if line == "" || strings.HasPrefix(line, "#") {
@@ -260,13 +273,20 @@ func solveUnit(c *apiClient, sh *studentShell, u *content.Unit, timeout time.Dur
 				return err
 			}
 		}
+		// Level tasks flip back and forth by design, and the LAST task of
+		// the unit is covered by the unit-completion wait below.
+		if t.Mode == content.ModeLevel || i == len(u.Tasks)-1 {
+			continue
+		}
+		if err := waitTask(c, u.ID, t.Name, deadline); err != nil {
+			return err
+		}
 	}
 	if !typed {
 		return fmt.Errorf("no solve script")
 	}
 
 	// Wait for unit completion via the API.
-	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
 		var p apiPath
 		if err := c.get("/api/path", &p); err == nil {
@@ -279,4 +299,21 @@ func solveUnit(c *apiClient, sh *studentShell, u *content.Unit, timeout time.Dur
 		time.Sleep(1 * time.Second)
 	}
 	return fmt.Errorf("not completed within %s", timeout)
+}
+
+// waitTask polls the unit API until the named task is completed (or, for
+// level tasks, currently satisfied).
+func waitTask(c *apiClient, unitID, task string, deadline time.Time) error {
+	for time.Now().Before(deadline) {
+		var au apiUnit
+		if err := c.get("/api/unit/"+unitID, &au); err == nil {
+			for _, t := range au.Tasks {
+				if t.Name == task && (t.Status == "completed" || t.Status == "satisfied") {
+					return nil
+				}
+			}
+		}
+		time.Sleep(300 * time.Millisecond)
+	}
+	return fmt.Errorf("task %s not completed before the unit deadline", task)
 }
