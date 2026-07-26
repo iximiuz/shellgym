@@ -6,12 +6,15 @@ any Linux box into an interactive command-line trainer.
 "Learn the idea in a tutorial. Build the reflex in Shell Gym."
 
 Tutorials explain concepts - Shell Gym drills them, helping you form the right muscle memory.
-Open a split-screen: a completely ordinary terminal on the one side, and the Shell Gym UI
+Open a **split-screen**: a completely ordinary terminal on the one side, and the Shell Gym UI
 on the other. The UI shows small, fast-changing assignments - **reps** (in the traditional
 gym sense). Each rep asks for one concrete action (enter a directory, create a file, kill a
 process, free a port) and completes automatically the moment the system state changes.
 There is no "check" button and no copy-paste: you will have to type real commands into a real shell,
 and the gym trainer will observe your actions and guide you on the way.
+
+> [!TIP]
+> Try it online: [Shell Gym Playground](https://labs.iximiuz.com/playgrounds/shellgym) (requires a free sign-up with GitHub)
 
 ## Why it exists
 
@@ -35,6 +38,18 @@ gym transfer one-to-one to any real terminal. See [detection.md](docs/detection.
 for how each mechanism works.
 
 ## Quick start
+
+> [!TIP]
+> **Shell Gym does not open a terminal for you** - the web UI is only the "trainer" half of the
+> screen. You type commands into your own regular terminal, placed side by side with the UI:
+>
+> - Some terminals (e.g., `cmux`) can show a browser pane next to the shell, giving you the
+>   split-screen out of the box.
+> - With any other terminal, use your OS's window tiling to put a terminal window and a
+>   browser window side by side.
+
+Quickest way to try Shell Gym without any setup is the [Shell Gym online playground](https://labs.iximiuz.com/playgrounds/shellgym) -
+a regular Ubuntu VM with Shell Gym (and Go) preinstalled and the split-screen view already arranged (requires a free sign-in with GitHub).
 
 Shell Gym runs on a plain Linux host (a VM, a spare laptop, an EC2 instance, etc.) **as root**.
 It should work on most (if not all) mainstream Linux distributions.
