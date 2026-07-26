@@ -153,7 +153,18 @@ Rules and behaviors:
   set; this is how exports are verified (ask the student to run any
   command after exporting)
 - `wait_file <path|glob>` / `wait_file_gone <path|glob>`
+- `wait_dir <path|glob>` - like `wait_file`, but only a directory
+  satisfies it (use for `mkdir` tasks so a plain file at the path does
+  not pass)
 - `wait_file_contains <path> <regex>` (multiline mode: `^...$` = a line)
+- `wait_file_mode <path> <octal>` - the file's permission bits equal the
+  octal mode; 4-digit form compares setuid/setgid/sticky too (`4755`),
+  3-digit form only matches when all special bits are clear
+- `wait_file_newer <path> <reference-path>` - the file's mtime is
+  strictly newer than the reference file's (verifying `touch` on an
+  existing file, "newer than" scenes); init typically plants a
+  reference marker next to an artificially aged target
+  (`touch -d '2 days ago' target`)
 - `wait_proc <regex>` / `wait_proc_gone <regex>` (full-cmdline match,
   all processes on the box)
 - `wait_port <port>` / `wait_port_free <port>` (listening TCP, v4+v6)
@@ -237,6 +248,10 @@ Directories are entered with a two-letter command.
   `name` attribute may be omitted.
 - `::hint` renders folded-by-default - for static nudges the student
   opts into.
+- `::tip` renders an always-visible callout (optional `title`, default
+  "Tip") - for terminal-interaction technique that checks cannot verify
+  (Tab completion, `Ctrl-R`, arrow-key history, pager keys). Hints answer
+  "I'm stuck"; tips teach the ergonomic way to do what the task asks.
 - `::image` and plain `![...](file.png)` serve unit-local files.
 - `${VAR}` interpolates in the body, titles, and component text.
 - Nested components use identical `::` fences.

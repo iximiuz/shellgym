@@ -120,6 +120,7 @@ activation, so no command is lost between check restarts.
 ## Direct system-state polling (procfs and friends)
 
 Used by: `wait_file`, `wait_file_gone`, `wait_file_contains`,
+`wait_dir`, `wait_file_mode`, `wait_file_newer`,
 `wait_proc`, `wait_proc_gone`, `wait_port`, `wait_port_free` built-ins.
 
 These checks do not go through the daemon at all - the check process
@@ -128,8 +129,11 @@ condition holds (or `--timeout`/`--now` says stop):
 
 - **Files** - `filepath.Glob` against the given path or glob pattern;
   existence of *anything* at the path counts (files, directories,
-  sockets). `wait_file_contains` reads the file and applies an RE2
-  regex in multiline mode.
+  sockets), except `wait_dir`, which additionally `stat`s the matches
+  and requires a directory. `wait_file_contains` reads the file and
+  applies an RE2 regex in multiline mode. `wait_file_mode` compares
+  `stat` mode bits (`mode & 07777`) against the given octal;
+  `wait_file_newer` compares the two files' mtimes.
 - **Processes** - a scan of `/proc/<pid>/cmdline` for every process on
   the box, NULs replaced with spaces, matched against the regex. Only
   the check's own process is excluded - notably *not* the bash running

@@ -11,16 +11,12 @@ init:
       chown "$GYM_USER" "$GYM_USER_HOME/secret.txt" "$GYM_USER_HOME/greet.sh"
 tasks:
   lock_secret:
-    # The check's own poll loop runs up to ~50s before falling through to
-    # hint_exit; the attempt timeout must exceed that or the hint never fires.
+    # wait_file_mode blocks up to 50s before falling through to hint_exit;
+    # the attempt timeout must exceed that or the hint never fires.
     timeout: 60
     check: |
-      PERMS=""
-      for i in $(seq 1 50); do
-        PERMS=$(stat -c %a "$GYM_USER_HOME/secret.txt" 2>/dev/null || true)
-        [ "$PERMS" = "600" ] && exit 0
-        sleep 1
-      done
+      wait_file_mode --timeout 50 "$GYM_USER_HOME/secret.txt" 600 && exit 0
+      PERMS=$(stat -c %a "$GYM_USER_HOME/secret.txt" 2>/dev/null || true)
       if [ -z "$PERMS" ]; then
         hint_exit "secret.txt disappeared from your home directory - recreate it (any content) and set its permissions."
       else

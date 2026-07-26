@@ -16,9 +16,9 @@ talks to the daemon over its unix socket (see
     fractional values are accepted.
   - `--now` - a single instant evaluation, no waiting. This is the form
     to use in `level` tasks, which are re-polled by the engine anyway.
-- **Polling checks** (`wait_cwd`, `wait_file*`, `wait_proc*`,
-  `wait_port*`) re-evaluate their condition every 200 ms in the shim
-  process. **Event checks** (`wait_exec`, `wait_env`) block inside the
+- **Polling checks** (`wait_cwd`, `wait_file*`, `wait_dir`,
+  `wait_proc*`, `wait_port*`) re-evaluate their condition every 200 ms
+  in the shim process. **Event checks** (`wait_exec`, `wait_env`) block inside the
   daemon and wake up on the next matching exec event.
 - **Regex flavor** is Go's RE2 (no backreferences). Patterns with shell
   metacharacters must be quoted.
@@ -160,6 +160,22 @@ check: |
   wait_file "/tmp/gym/reports/*.txt"
 ```
 
+### `wait_dir <path-or-glob>`
+
+Like `wait_file`, but only a **directory** satisfies it: waits until at
+least one match of the path or glob exists *and* is a directory. Use it
+for `mkdir` tasks, where `wait_file` would also accept a plain file the
+student created by mistake:
+
+```yaml
+check: |
+  wait_dir "/tmp/gym-depot/$BOX"
+hint: |
+  if [ -f "/tmp/gym-depot/$BOX" ]; then
+    echo "That is a regular file - the task needs a directory."
+  fi
+```
+
 ### `wait_file_gone <path-or-glob>`
 
 Waits until **nothing** matches the path or glob. Pair it with a
@@ -181,6 +197,47 @@ lines - `'^done$'` means "a line that is exactly `done`":
 check: |
   wait_file_contains "$GYM_USER_HOME/notes.txt" "^$TOKEN$"
 ```
+
+### `wait_file_mode <path> <octal-mode>`
+
+Waits until the file's permission bits **equal** the octal mode. The
+comparison covers the full 12-bit mode: a 4-digit octal also matches
+setuid/setgid/sticky (`4755`), while a 3-digit octal only matches when
+all special bits are clear (`755` will not accept a setuid `4755`).
+
+```yaml
+check: |
+  wait_file_mode --timeout 50 "$GYM_USER_HOME/secret.txt" 600 || \
+    hint_exit "secret.txt is still $(stat -c %a "$GYM_USER_HOME/secret.txt" 2>/dev/null) - the target is 600."
+```
+
+A missing file simply does not match (the check keeps waiting), so
+recreating the file with the right mode also passes.
+
+### `wait_file_newer <path> <reference-path>`
+
+Waits until the file's modification time is **strictly newer** than the
+reference file's. This is the check for "refresh the timestamp" reps
+(`touch` on an existing file) and "newer than X" scenes. The usual
+pattern: init ages the target and plants a root-owned reference marker
+stamped at activation time:
+
+```yaml
+init:
+  - name: create_scene
+    run: |
+      mkdir -p /tmp/gym-inbox /run/gym-refs
+      touch -d "2 days ago" /tmp/gym-inbox/report.txt
+      touch /run/gym-refs/freshness
+tasks:
+  stamped:
+    check: |
+      wait_file_newer /tmp/gym-inbox/report.txt /run/gym-refs/freshness
+```
+
+If either file is missing the condition is simply not met yet - there
+is no baseline requirement, because the target starts *older* than the
+reference by construction.
 
 ## Processes
 
@@ -290,9 +347,12 @@ short delay, and the hint stays visible in the task box until replaced.
 | the shell moved somewhere | `wait_cwd` |
 | a command was run (no lasting effect) | `wait_exec` |
 | a variable was exported | `wait_env` |
-| a file/directory was created | `wait_file` |
+| a file was created | `wait_file` |
+| a directory was created | `wait_dir` |
 | a file was removed | baseline + `wait_file_gone` |
 | file content | `wait_file_contains` |
+| file permissions | `wait_file_mode` |
+| a timestamp was refreshed / file is newer than a reference | `wait_file_newer` |
 | a process is running | `wait_proc` |
 | a process was stopped | baseline + `wait_proc_gone` |
 | a server is up | `wait_port` |

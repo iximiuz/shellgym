@@ -19,6 +19,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -27,6 +28,7 @@ var Names = []string{
 	"shell_cwd", "shells", "hint_exit", "set_var",
 	"wait_cwd", "wait_exec", "wait_env",
 	"wait_file", "wait_file_gone", "wait_file_contains",
+	"wait_file_mode", "wait_file_newer", "wait_dir",
 	"wait_proc", "wait_proc_gone",
 	"wait_port", "wait_port_free",
 }
@@ -211,6 +213,49 @@ func (c *client) run(name string, args []string, deadline time.Time) (bool, erro
 			raw, err := os.ReadFile(args[0])
 			return err == nil && re.Match(raw), nil
 		})
+	case "wait_dir":
+		if len(args) != 1 {
+			return false, fmt.Errorf("usage: wait_dir <path-or-glob>")
+		}
+		return c.poll(oneShot, deadline, func() (bool, error) {
+			m, err := filepath.Glob(args[0])
+			if err != nil {
+				return false, nil
+			}
+			for _, p := range m {
+				if fi, err := os.Stat(p); err == nil && fi.IsDir() {
+					return true, nil
+				}
+			}
+			return false, nil
+		})
+	case "wait_file_mode":
+		if len(args) != 2 {
+			return false, fmt.Errorf("usage: wait_file_mode <path> <octal-mode>")
+		}
+		want, err := strconv.ParseUint(args[1], 8, 32)
+		if err != nil || want > 0o7777 {
+			return false, fmt.Errorf("invalid octal mode %q", args[1])
+		}
+		return c.poll(oneShot, deadline, func() (bool, error) {
+			mode, ok := statMode(args[0])
+			return ok && mode == uint32(want), nil
+		})
+	case "wait_file_newer":
+		if len(args) != 2 {
+			return false, fmt.Errorf("usage: wait_file_newer <path> <reference-path>")
+		}
+		return c.poll(oneShot, deadline, func() (bool, error) {
+			fi, err := os.Stat(args[0])
+			if err != nil {
+				return false, nil
+			}
+			ref, err := os.Stat(args[1])
+			if err != nil {
+				return false, nil
+			}
+			return fi.ModTime().After(ref.ModTime()), nil
+		})
 	case "wait_proc":
 		if len(args) != 1 {
 			return false, fmt.Errorf("usage: wait_proc <regex>")
@@ -290,6 +335,17 @@ func pathMatch(pattern, cwd string) bool {
 		}
 	}
 	return false
+}
+
+// statMode returns the permission-plus-special bits (mode & 07777) of path,
+// straight from the syscall so setuid/setgid/sticky compare naturally
+// against a 4-digit octal.
+func statMode(path string) (uint32, bool) {
+	var st syscall.Stat_t
+	if err := syscall.Stat(path, &st); err != nil {
+		return 0, false
+	}
+	return st.Mode & 0o7777, true
 }
 
 func procMatch(re *regexp.Regexp) bool {
