@@ -13,8 +13,9 @@ import (
 // Load reads a learning path from dir. distro is the running distro id
 // (e.g. "ubuntu"); units whose labels don't match it are dropped.
 // distroLike lists ID_LIKE values ("debian" for ubuntu, etc.). caps lists
-// host capabilities (e.g. "systemd"); units with unmet `requires:` are
-// dropped.
+// host capabilities (e.g. "systemd"); units with unmet `requires:` - and
+// units that build on them via needs:/from: - are kept but marked
+// Unsupported.
 func Load(dir string, distro string, distroLike []string, caps []string) (*Path, error) {
 	dir, err := filepath.Abs(dir)
 	if err != nil {
@@ -86,13 +87,52 @@ func loadModule(dir, folder, distro string, distroLike []string, caps []string) 
 		if err != nil {
 			return nil, err
 		}
-		if !distroMatch(u.Front.Labels, distro, distroLike) || !capsMatch(u.Front.Requires, caps) {
+		if !distroMatch(u.Front.Labels, distro, distroLike) {
 			continue
 		}
+		u.MissingCaps = missingCaps(u.Front.Requires, caps)
+		u.Unsupported = len(u.MissingCaps) > 0
 		mod.Units = append(mod.Units, u)
 	}
 	sort.Slice(mod.Units, func(i, j int) bool { return mod.Units[i].Order < mod.Units[j].Order })
+	markUnsupportedDependents(mod)
 	return mod, nil
+}
+
+// markUnsupportedDependents cascades the Unsupported flag: a unit that
+// builds on an unsupported unit (via needs: or a from: var) cannot run
+// either - its scene assumes state that unit would have left behind. Units
+// are walked in order and deps precede their dependents, so a single pass
+// propagates the flag transitively.
+func markUnsupportedDependents(mod *Module) {
+	byName := map[string]*Unit{}
+	for _, u := range mod.Units {
+		byName[u.Name] = u
+	}
+	depUnsupported := func(name string) bool {
+		dep := byName[name]
+		return dep != nil && dep.Unsupported
+	}
+	for _, u := range mod.Units {
+		if u.Unsupported {
+			continue
+		}
+		for _, need := range u.Front.Needs {
+			if depUnsupported(need) {
+				u.Unsupported = true
+				break
+			}
+		}
+		if u.Unsupported {
+			continue
+		}
+		for _, spec := range u.Front.Vars {
+			if refUnit, _, ok := strings.Cut(spec.From, "."); ok && depUnsupported(refUnit) {
+				u.Unsupported = true
+				break
+			}
+		}
+	}
 }
 
 func loadUnit(dir, folder, moduleID string) (*Unit, error) {
@@ -173,13 +213,14 @@ func splitFrontmatter(raw string) (front, body string, err error) {
 	return rest[:idx], rest[idx+len("\n---\n"):], nil
 }
 
-// capsMatch reports whether every required capability is present.
-func capsMatch(requires, caps []string) bool {
+// missingCaps returns the required capabilities not present in caps.
+func missingCaps(requires, caps []string) []string {
 	for _, c := range caps {
 		if c == "*" {
-			return true
+			return nil
 		}
 	}
+	var missing []string
 	for _, r := range requires {
 		found := false
 		for _, c := range caps {
@@ -189,10 +230,10 @@ func capsMatch(requires, caps []string) bool {
 			}
 		}
 		if !found {
-			return false
+			missing = append(missing, r)
 		}
 	}
-	return true
+	return missing
 }
 
 func distroMatch(labels []string, distro string, distroLike []string) bool {

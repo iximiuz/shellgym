@@ -57,7 +57,7 @@ type Frontmatter struct {
 	Needs  []string `yaml:"needs"`
 	// Requires lists host capabilities the unit depends on (currently:
 	// "systemd", "python3"). Units whose requirements the runtime lacks
-	// are dropped at load time.
+	// are marked Unsupported at load time: still shown, never run.
 	Requires []string           `yaml:"requires"`
 	Vars     map[string]VarSpec `yaml:"vars"`
 	Init     []InitTask         `yaml:"init"`
@@ -74,6 +74,12 @@ type Unit struct {
 	Front    Frontmatter
 	Body     string  // raw markdown body
 	Tasks    []*Task // frontmatter tasks in stable (name-sorted, deps-checked) order
+	// MissingCaps lists `requires:` capabilities absent on this host.
+	MissingCaps []string
+	// Unsupported marks a unit that cannot run in this environment: it has
+	// missing capabilities itself, or (transitively) builds on a unit that
+	// does. Unsupported units stay browsable but are never activated.
+	Unsupported bool
 }
 
 // Module groups units; may have an intro scene (module.md).

@@ -243,27 +243,71 @@ func TestRealLinux101Path(t *testing.T) {
 			t.Fatalf("%s: suspiciously few units: %d", d.id, units)
 		}
 	}
+
+	// Without python3 the whole http.server chain in networking-basics must
+	// be marked unsupported (serve-yourself directly, stop-serving by
+	// cascade) but still present.
+	p, err := Load(root, "ubuntu", []string{"debian"}, []string{"systemd"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{
+		"networking-basics/who-is-listening",
+		"networking-basics/serve-yourself",
+		"networking-basics/stop-serving",
+	} {
+		u := p.Unit(id)
+		if u == nil {
+			t.Fatalf("unit %s missing from python3-less load", id)
+		}
+		if !u.Unsupported {
+			t.Errorf("unit %s: want unsupported without python3", id)
+		}
+	}
 }
 
 func TestRequiresCapabilityFilter(t *testing.T) {
 	gated := strings.Replace(minimalUnit, "title: A unit", "title: A unit\nrequires: [systemd]", 1)
+	// Depends on the gated unit via needs: - unsupported by cascade.
+	dependent := strings.Replace(minimalUnit, "title: A unit", "title: A unit\nneeds: [gated]", 1)
+	// References a var of the dependent - unsupported transitively, via from:.
+	varRef := strings.Replace(minimalUnit, "title: A unit",
+		"title: A unit\nvars:\n  V: { from: dependent.W }", 1)
+	dependent = strings.Replace(dependent, "title: A unit\n", "title: A unit\nvars:\n  W: { value: x }\n", 1)
 	dir := scaffold(t, map[string]string{
-		"010.m/010.plain/unit.md": minimalUnit,
-		"010.m/020.gated/unit.md": gated,
+		"010.m/010.plain/unit.md":     minimalUnit,
+		"010.m/020.gated/unit.md":     gated,
+		"010.m/030.dependent/unit.md": dependent,
+		"010.m/040.var-ref/unit.md":   varRef,
 	})
 	p, err := Load(dir, "ubuntu", nil, nil) // no capabilities
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n := len(p.Modules[0].Units); n != 1 {
-		t.Fatalf("want gated unit dropped, got %d units", n)
+	if n := len(p.Modules[0].Units); n != 4 {
+		t.Fatalf("want all units kept, got %d", n)
 	}
+	for name, want := range map[string]bool{"plain": false, "gated": true, "dependent": true, "var-ref": true} {
+		u := p.Unit("m/" + name)
+		if u.Unsupported != want {
+			t.Errorf("unit %s: Unsupported = %v, want %v", name, u.Unsupported, want)
+		}
+	}
+	if got := p.Unit("m/gated").MissingCaps; len(got) != 1 || got[0] != "systemd" {
+		t.Errorf("gated MissingCaps = %v, want [systemd]", got)
+	}
+	if got := p.Unit("m/dependent").MissingCaps; len(got) != 0 {
+		t.Errorf("dependent MissingCaps = %v, want none (cascaded, not direct)", got)
+	}
+
 	p, err = Load(dir, "ubuntu", nil, []string{"systemd"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n := len(p.Modules[0].Units); n != 2 {
-		t.Fatalf("want gated unit kept with systemd cap, got %d units", n)
+	for _, u := range p.Modules[0].Units {
+		if u.Unsupported {
+			t.Errorf("unit %s: unsupported despite systemd cap", u.ID)
+		}
 	}
 }
 

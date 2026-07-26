@@ -541,6 +541,25 @@ button { font: inherit; color: inherit; }
   display: flex; align-items: center; gap: 14px;
   margin: 28px 0;
 }
+
+/* ---------- unsupported unit (host lacks a required capability) ---------- */
+/* read-only preview: dimmed task boxes with a still ring, like .unstarted -
+   the checks will never arm here */
+.scene.unsupported .task-box { opacity: .65; }
+.scene.unsupported .task-box .task-status-icon {
+  animation: none; border-color: var(--line-strong);
+}
+.scene.unsupported .task-box .task-section-hint { display: none; }
+.unsupported-bar {
+  display: flex; align-items: center; gap: 10px;
+  margin: 28px 0; padding: 10px 14px;
+  border: 1px solid var(--line-strong); border-radius: 10px;
+  background: color-mix(in srgb, var(--faint) 8%, transparent);
+  color: var(--muted); font-size: 13.5px;
+}
+.unsupported-bar .ico { flex: 0 0 auto; color: var(--faint); }
+.map-item.unsupported { opacity: .55; }
+.map-item.unsupported .map-title { text-decoration: line-through; text-decoration-color: var(--faint); }
 .activate-btn {
   flex: 0 0 auto;
   display: inline-flex; align-items: center; gap: 8px;

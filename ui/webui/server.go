@@ -92,6 +92,10 @@ type sceneJSON struct {
 	// Locked marks units whose needs: dependencies are not all completed:
 	// browsable, but not activatable (no init, no checks) until they are.
 	Locked bool `json:"locked"`
+	// Unsupported marks units this environment cannot run (missing host
+	// capabilities, directly or via a needed unit): browsable, never
+	// activatable, excluded from the path's progress total.
+	Unsupported bool `json:"unsupported,omitempty"`
 }
 
 type pathJSON struct {
@@ -121,7 +125,9 @@ func (s *Server) handlePath(w http.ResponseWriter, r *http.Request) {
 					Title: sc.Module.Title, Status: st,
 				})
 			case "unit":
-				out.Total++
+				if !sc.Unit.Unsupported {
+					out.Total++
+				}
 				st := "pending"
 				if us, ok := d.Units[sc.Unit.ID]; ok {
 					st = string(us.Status)
@@ -132,7 +138,8 @@ func (s *Server) handlePath(w http.ResponseWriter, r *http.Request) {
 				out.Scenes = append(out.Scenes, sceneJSON{
 					Kind: "unit", ID: sc.Unit.ID, ModuleID: sc.Unit.ModuleID,
 					Title: sc.Unit.Front.Title, Status: st,
-					Locked: engine.UnitLockedIn(p, d, sc.Unit.ID),
+					Locked:      engine.UnitLockedIn(p, d, sc.Unit.ID),
+					Unsupported: sc.Unit.Unsupported,
 				})
 			}
 		}
@@ -159,6 +166,10 @@ type unitJSON struct {
 	Status string            `json:"status"`
 	Locked bool              `json:"locked"`
 	Vars   map[string]string `json:"vars,omitempty"` // consumed by `shellgym solve`
+	// Unsupported units render as a disabled preview; MissingCaps (set only
+	// when the unit itself has unmet requires:) feeds the badge text.
+	Unsupported bool     `json:"unsupported,omitempty"`
+	MissingCaps []string `json:"missingCaps,omitempty"`
 }
 
 func (s *Server) handleUnit(w http.ResponseWriter, r *http.Request) {
@@ -170,8 +181,14 @@ func (s *Server) handleUnit(w http.ResponseWriter, r *http.Request) {
 	}
 	vars, err := s.Engine.EnsureVars(id)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
+		// An unsupported unit's vars may be unresolvable here (e.g. a shell:
+		// var needing the very capability the host lacks) - still show the
+		// page, with placeholders left as-is.
+		if !u.Unsupported {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		vars = map[string]string{}
 	}
 	body := content.Interpolate(u.Body, vars)
 	title := content.Interpolate(u.Front.Title, vars)
@@ -185,7 +202,8 @@ func (s *Server) handleUnit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out := unitJSON{ID: u.ID, Title: title, Module: u.ModuleID, HTML: html, Status: "pending",
-		Locked: s.Engine.UnitLocked(id), Vars: vars}
+		Locked: s.Engine.UnitLocked(id), Vars: vars,
+		Unsupported: u.Unsupported, MissingCaps: u.MissingCaps}
 	s.Engine.Store.View(func(d *state.Data) {
 		us := d.Unit(id)
 		out.Status = string(us.Status)
@@ -226,7 +244,7 @@ func (s *Server) handleActivate(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if err := s.Engine.ActivateUnit(id); err != nil {
 		code := 400
-		if errors.Is(err, engine.ErrUnitLocked) {
+		if errors.Is(err, engine.ErrUnitLocked) || errors.Is(err, engine.ErrUnitUnsupported) {
 			code = 409
 		}
 		http.Error(w, err.Error(), code)

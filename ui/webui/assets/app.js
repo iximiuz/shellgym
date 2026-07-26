@@ -52,7 +52,9 @@ function startSceneIndex() {
 }
 
 function sceneDone(s) {
-  return s.kind === 'unit' ? s.status === 'completed' : s.status === 'seen';
+  // Unsupported units count as "done" for landing/advancing purposes:
+  // nothing can ever happen on them.
+  return s.kind === 'unit' ? s.status === 'completed' || s.unsupported : s.status === 'seen';
 }
 
 async function refreshPath() {
@@ -106,7 +108,8 @@ async function showScene(idx, dir) {
 
   // Only the path's next unit (and units already started) auto-activate on
   // view; other units wait for an explicit start, or are locked by deps.
-  if (meta && meta.kind === 'unit' && meta.status !== 'completed' &&
+  // Unsupported units never activate (the daemon refuses anyway).
+  if (meta && meta.kind === 'unit' && meta.status !== 'completed' && !meta.unsupported &&
       (meta.status === 'active' || meta.id === nextUnitId())) {
     fetch(`/api/activate/${meta.id}`, { method: 'POST' }).catch(() => {});
   }
@@ -134,7 +137,9 @@ async function buildUnitScene(meta) {
     if (t.hint && !isDone(t.status)) setTaskHint(box, t.hint);
   }
   refreshTaskBlocking(el);
-  if (unit.status === 'completed') {
+  if (unit.unsupported) {
+    addUnsupportedBar(el, unit);
+  } else if (unit.status === 'completed') {
     el.classList.add('done');
   } else if (meta.locked) {
     el.classList.add('locked');
@@ -144,10 +149,22 @@ async function buildUnitScene(meta) {
   return el;
 }
 
-// nextUnitId returns the first not-yet-completed unit in path order - the
-// only unit the UI activates on its own.
+// addUnsupportedBar turns the scene into a read-only preview of a unit this
+// environment cannot run: dimmed tasks and an explainer badge under the
+// header (mirroring the explicit-start bar's placement).
+function addUnsupportedBar(el, unit) {
+  el.classList.add('unsupported');
+  const bar = tpl('tpl-unsupported');
+  $('.unsupported-note', bar).textContent = unit.missingCaps?.length
+    ? `This exercise needs ${unit.missingCaps.join(', ')}, which this environment doesn't have. Feel free to read along - the checks stay off.`
+    : 'This exercise builds on one that this environment can\'t run. Feel free to read along - the checks stay off.';
+  $('.scene-body', el).before(bar);
+}
+
+// nextUnitId returns the first not-yet-completed runnable unit in path
+// order - the only unit the UI activates on its own.
 function nextUnitId() {
-  const s = state.path.scenes.find((x) => x.kind === 'unit' && x.status !== 'completed');
+  const s = state.path.scenes.find((x) => x.kind === 'unit' && x.status !== 'completed' && !x.unsupported);
   return s ? s.id : null;
 }
 
@@ -201,7 +218,8 @@ function renderFinale(el) {
   list.replaceChildren();
   if (allDone) return;
   scenes.forEach((s, i) => {
-    if (s.kind !== 'unit' || s.status === 'completed') return;
+    // Unsupported units are not "open" work - they can never be done here.
+    if (s.kind !== 'unit' || s.status === 'completed' || s.unsupported) return;
     const item = tpl('tpl-map-item');
     const st = $('.st', item);
     st.classList.add(s.status);
@@ -337,7 +355,7 @@ async function onUnitEvent(d) {
 function refreshCurrentSceneGating() {
   const meta = state.path.scenes[state.idx];
   const el = state.sceneEl;
-  if (!meta || meta.kind !== 'unit' || !el || meta.status !== 'pending') return;
+  if (!meta || meta.kind !== 'unit' || !el || meta.status !== 'pending' || meta.unsupported) return;
   if (meta.id === nextUnitId()) {
     el.classList.remove('locked', 'unstarted');
     $('.activate-bar', el)?.remove();
@@ -423,7 +441,13 @@ async function openMap() {
     item.classList.toggle('current', i === state.idx);
     const st = $('.st', item);
     st.classList.add(s.status);
-    st.textContent = s.status === 'completed' || s.status === 'active' ? '●' : '○';
+    if (s.unsupported) {
+      item.classList.add('unsupported');
+      item.title = 'Not available in this environment';
+      st.textContent = '⊘';
+    } else {
+      st.textContent = s.status === 'completed' || s.status === 'active' ? '●' : '○';
+    }
     $('.map-title', item).textContent = s.title;
     item.addEventListener('click', () => {
       $('#map-overlay').hidden = true;

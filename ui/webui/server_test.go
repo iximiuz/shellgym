@@ -193,6 +193,107 @@ func TestDependencyGating(t *testing.T) {
 	}
 }
 
+func TestUnsupportedUnits(t *testing.T) {
+	dir := t.TempDir()
+	write := func(rel, data string) {
+		p := filepath.Join(dir, "content", rel)
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(data), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("path.yaml", "id: capstest\ntitle: Caps Test\n")
+	write("010.mod/010.plain/unit.md", "---\ntitle: Plain\ntasks:\n  t1:\n    check: |\n      true\n---\nBody.\n")
+	// Requires a capability the (caps-less) load below does not have; its
+	// init drops a marker file so the test can prove it never ran.
+	write("010.mod/020.gated/unit.md", `---
+title: Gated
+requires: [warpdrive]
+init:
+  - name: seed
+    run: |
+      touch `+filepath.Join(dir, "gated-init-ran")+`
+tasks:
+  t1:
+    check: |
+      true
+---
+Gated body.
+`)
+	write("010.mod/030.dependent/unit.md", "---\ntitle: Dependent\nneeds: [gated]\ntasks:\n  t1:\n    check: |\n      true\n---\nBody.\n")
+
+	p, err := content.Load(filepath.Join(dir, "content"), "ubuntu", nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err := state.Open(filepath.Join(dir, "state"), p.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := bus.New()
+	eng := engine.New(p, st, b, nil, engine.Options{ChecksDir: dir, SockPath: filepath.Join(dir, "x.sock")})
+	t.Cleanup(eng.Shutdown)
+	ts := httptest.NewServer(New(":0", eng, b).mux)
+	defer ts.Close()
+
+	// The path lists all three units, but only the runnable one counts.
+	resp, err := http.Get(ts.URL + "/api/path")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var out struct {
+		Total  int `json:"total"`
+		Scenes []struct {
+			ID          string
+			Unsupported bool
+		} `json:"scenes"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	if out.Total != 1 || len(out.Scenes) != 3 {
+		t.Fatalf("total=%d scenes=%d, want 1/3", out.Total, len(out.Scenes))
+	}
+	if out.Scenes[0].Unsupported || !out.Scenes[1].Unsupported || !out.Scenes[2].Unsupported {
+		t.Fatalf("unsupported flags: %+v", out.Scenes)
+	}
+
+	// Activation is refused and init never runs.
+	resp2, err := http.Post(ts.URL+"/api/activate/mod/gated", "application/json", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp2.Body.Close()
+	if resp2.StatusCode != 409 {
+		t.Fatalf("activate unsupported unit: got %d, want 409", resp2.StatusCode)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "gated-init-ran")); !os.IsNotExist(err) {
+		t.Fatal("unsupported unit's init ran")
+	}
+
+	// The page still renders, flagged with the missing capability.
+	resp3, err := http.Get(ts.URL + "/api/unit/mod/gated")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp3.Body.Close()
+	var unit struct {
+		Title       string   `json:"title"`
+		Unsupported bool     `json:"unsupported"`
+		MissingCaps []string `json:"missingCaps"`
+	}
+	if err := json.NewDecoder(resp3.Body).Decode(&unit); err != nil {
+		t.Fatal(err)
+	}
+	if resp3.StatusCode != 200 || unit.Title != "Gated" || !unit.Unsupported ||
+		len(unit.MissingCaps) != 1 || unit.MissingCaps[0] != "warpdrive" {
+		t.Fatalf("browse unsupported unit: status %d, %+v", resp3.StatusCode, unit)
+	}
+}
+
 // Force-activation is intentionally absent: even authors cannot activate a
 // unit whose needs: deps are unsolved.
 func TestForceParamIsIgnored(t *testing.T) {

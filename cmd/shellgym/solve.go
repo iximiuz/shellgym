@@ -152,9 +152,10 @@ func (c *apiClient) post(path string) error {
 }
 
 type apiScene struct {
-	Kind   string `json:"kind"`
-	ID     string `json:"id"`
-	Status string `json:"status"`
+	Kind        string `json:"kind"`
+	ID          string `json:"id"`
+	Status      string `json:"status"`
+	Unsupported bool   `json:"unsupported"`
 }
 
 type apiPath struct {
@@ -209,6 +210,10 @@ func runSolve(api, pathDir, unitFilter string, timeout time.Duration) error {
 		}
 		if scene.Status == "completed" {
 			fmt.Printf("SKIP  %s (already completed)\n", scene.ID)
+			continue
+		}
+		if scene.Unsupported {
+			fmt.Printf("SKIP  %s (not supported by the daemon's environment)\n", scene.ID)
 			continue
 		}
 		// Note: the daemon rejects activation of units whose needs: deps

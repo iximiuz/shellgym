@@ -149,6 +149,11 @@ func (e *Engine) Resume() {
 // scene builds on state those units leave behind.
 var ErrUnitLocked = errors.New("unit is locked")
 
+// ErrUnitUnsupported is returned when an unsupported unit is activated: the
+// host lacks capabilities the unit (or a unit it builds on) requires, so
+// its init and checks can never run correctly.
+var ErrUnitUnsupported = errors.New("unit is not supported in this environment")
+
 // UnitLocked reports whether the unit's `needs:` dependencies are not all
 // completed yet. Completed units are never locked, so solved reps stay
 // browsable.
@@ -181,11 +186,15 @@ func UnitLockedIn(p *content.Path, d *state.Data, id string) bool {
 // ActivateUnit makes the unit current: resolves vars (once), runs init tasks
 // (once), and starts task supervisors. Completed units only become "current"
 // for viewing; their tasks are not restarted. Locked units (see UnitLocked)
-// are rejected with ErrUnitLocked so a unit never arms on a half-built scene.
+// are rejected with ErrUnitLocked so a unit never arms on a half-built scene;
+// unsupported units (missing host capabilities) with ErrUnitUnsupported.
 func (e *Engine) ActivateUnit(id string) error {
 	u := e.Path.Unit(id)
 	if u == nil {
 		return fmt.Errorf("unknown unit %q", id)
+	}
+	if u.Unsupported {
+		return fmt.Errorf("unit %q: %w", id, ErrUnitUnsupported)
 	}
 	if e.UnitLocked(id) {
 		return fmt.Errorf("unit %q: %w - it builds on units that are not solved yet", id, ErrUnitLocked)
