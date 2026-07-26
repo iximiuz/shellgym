@@ -274,6 +274,10 @@ title: Forgot the command?
 Directories are entered with a two-letter command.
 ::
 
+::tip{title="Let the shell type for you"}
+Press `Tab` after a few letters of a path and the shell completes it.
+::
+
 ::image{src="diagram.png" alt="The tree"}
 ::
 ```
@@ -284,6 +288,13 @@ Directories are entered with a two-letter command.
   the `name` attribute may be omitted.
 - `::hint` renders folded by default - for static nudges the student
   opts into.
+- `::tip` renders an always-visible callout (optional `title`, default
+  "Tip"). Use it for terminal-interaction technique the checks cannot
+  verify - Tab completion, arrow-key history, `Ctrl-R`, pager keys.
+  The division of labor: hints answer "I'm stuck" on the task at hand;
+  tips teach the ergonomic way to do what the task asks. Since tips are
+  unmissable, keep them short and place them next to the task they help
+  with.
 - `::image` and plain `![...](file.png)` serve unit-local files.
 - `${VAR}` interpolates everywhere: body, titles, component text.
 - Nested components use identical `::` fences.

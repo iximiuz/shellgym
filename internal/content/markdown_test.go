@@ -68,6 +68,36 @@ func TestRenderHintComponent(t *testing.T) {
 	}
 }
 
+func TestRenderTipComponent(t *testing.T) {
+	html, err := RenderUnit("::tip{title=\"Tab completion\"}\nPress `Tab` to complete.\n::", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		`class="tip-box"`,
+		`tip-title`,
+		`Tab completion`,
+		`<code>Tab</code>`,
+		`tip-icon`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("missing %q in tip html:\n%s", want, html)
+		}
+	}
+	// details/summary is the hint's shape; tips are always visible
+	if strings.Contains(html, "<details") {
+		t.Errorf("tip must not fold: %s", html)
+	}
+	// title defaults to "Tip"
+	html, err = RenderUnit("::tip\nSomething useful.\n::", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(html, ">Tip</span>") {
+		t.Errorf("default title missing: %s", html)
+	}
+}
+
 func TestRenderImageComponent(t *testing.T) {
 	html, err := RenderUnit("::image{src=\"pic.png\" alt=\"A pic\"}\n::", "/unit-assets/m/u/")
 	if err != nil {

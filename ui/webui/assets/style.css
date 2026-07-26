@@ -489,6 +489,23 @@ button { font: inherit; color: inherit; }
 }
 .hint-box .hint-body { padding: 10px 14px 12px; }
 
+/* ---------- tips ---------- */
+/* always-visible technique callout (keystrokes, completion, history);
+   sky/task-blue family so it reads "terminal technique", not "help me" */
+.tip-box {
+  border: 1px solid var(--task-line); border-radius: 10px;
+  margin: 14px 0; background: var(--task-soft);
+}
+.tip-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px 0; font-weight: 600; font-size: 13px;
+  letter-spacing: .02em; color: var(--accent);
+}
+.tip-icon { width: 16px; height: 16px; flex: 0 0 auto; }
+.tip-box .tip-body { padding: 6px 14px 10px; font-size: 14px; }
+.tip-box .tip-body p { margin: 6px 0; }
+.tip-box .tip-body code { background: color-mix(in srgb, var(--accent-hi) 14%, transparent); }
+
 /* ---------- locked (future) unit preview ---------- */
 /* lock in the unit header, mirroring .title-check */
 .title-lock {

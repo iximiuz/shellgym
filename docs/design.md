@@ -171,7 +171,9 @@ Directories are entered with a two-letter command from the 70s.
 - `::task` renders live task status (spinner/checkmark, `#active` and
   `#completed` sections, hint area patched over WebSocket). If the unit
   has exactly one task, `name` may be omitted.
-- `::hint` renders folded by default; `::image` and plain `![...]()` serve
+- `::hint` renders folded by default; `::tip` renders an always-visible
+  callout for terminal-technique notes (Tab completion, history keys)
+  that checks cannot verify; `::image` and plain `![...]()` serve
   unit-local files.
 - `${VAR}` interpolation is applied server-side; task status/hints are
   patched live by the UI.

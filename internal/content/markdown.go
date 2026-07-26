@@ -180,6 +180,18 @@ func renderComponent(c *Component, assetPrefix, defaultTask string) (string, err
 		return fmt.Sprintf(
 			`<details class="hint-box"><summary><span class="hint-title">%s</span>%s</summary><div class="hint-body">%s</div></details>`,
 			html.EscapeString(title), hintBulbSVG, inner), nil
+	case "tip":
+		title := c.Attrs["title"]
+		if title == "" {
+			title = "Tip"
+		}
+		inner, err := RenderMarkdown(c.Sections[""])
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf(
+			`<div class="tip-box"><div class="tip-head">%s<span class="tip-title">%s</span></div><div class="tip-body">%s</div></div>`,
+			tipTermSVG, html.EscapeString(title), inner), nil
 	case "image":
 		src := c.Attrs["src"]
 		if !strings.Contains(src, "://") && !strings.HasPrefix(src, "/") {
@@ -194,6 +206,11 @@ func renderComponent(c *Component, assetPrefix, defaultTask string) (string, err
 
 // hintBulbSVG is mdi:lightbulb-on-40 - the lightbulb the labs platform
 // shows on hint boxes (rendered on the right edge of the summary row).
+// tipTermSVG is a terminal-prompt glyph (chevron + underscore) for ::tip
+// callouts - always-visible technique notes (keystrokes, tab completion,
+// history tricks) that sit alongside tasks, unlike the folded ::hint.
+const tipTermSVG = `<svg class="tip-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 17l6-5-6-5"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 19h8"/></svg>`
+
 const hintBulbSVG = `<svg class="hint-bulb" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M1 11h3v2H1zM13 1h-2v3h2zM4.9 3.5L3.5 4.9L5.6 7L7 5.6zm14.2 0L17 5.6L18.4 7l2.1-2.1zM10 22c0 .6.4 1 1 1h2c.6 0 1-.4 1-1v-1h-4zm10-11v2h3v-2zm-2 1c0 2.2-1.2 4.2-3 5.2V19c0 .6-.4 1-1 1h-4c-.6 0-1-.4-1-1v-1.8c-1.8-1-3-3-3-5.2c0-3.3 2.7-6 6-6s6 2.7 6 6m-2 0c0-2.21-1.79-4-4-4s-4 1.79-4 4c0 .74.22 1.41.57 2h6.86c.35-.59.57-1.26.57-2"/></svg>`
 
 func renderTaskComponent(c *Component, defaultTask string) (string, error) {
