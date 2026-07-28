@@ -103,6 +103,9 @@ Rules and behaviors:
   resolve once per activation, persist for the whole attempt (across
   daemon restarts), are exported into every script as environment
   variables, and interpolate into the markdown as `${DIRNAME}`.
+  Do NOT use vars in `title:` - the path map lists all units including
+  never-activated ones, whose vars have no values yet, so the map shows
+  the raw `${NAME}` text. Keep titles literal; use vars in the body.
 - **Filters** apply at load time; filtered-out units do not exist for
   that host. `labels` matches `ID`/`ID_LIKE` from `/etc/os-release`
   (`ubuntu`, `debian`, `rocky`, ...); `requires` matches detected
@@ -142,13 +145,20 @@ Rules and behaviors:
   `TRAVELER=$(wait_cwd "/tmp/gym/$D") || exit 1` then
   `set_var TRAVELER "$TRAVELER"` in one unit, and
   `wait_cwd "$TRAVELER" "$GYM_USER_HOME"` in the unit that `needs:` it
-- `wait_exec <regex>` - the student ran a command matching regex
-  (matched against full argv; only tty-attached processes of the
-  observed user, executed after the unit's activation, count; matched
-  commands are buffered, so a command run just before the check
-  restarted still passes; commands typed at human speed are captured
-  reliably, but processes spawned in tight machine-speed loops can be
-  missed - do not depend on catching those)
+- `wait_exec [--argc N] <regex>` - the student ran a command matching
+  regex (matched against full argv joined with spaces; only tty-attached
+  processes of the observed user, executed after the unit's activation,
+  count; matched commands are buffered, so a command run just before the
+  check restarted still passes; commands typed at human speed are
+  captured reliably, but processes spawned in tight machine-speed loops
+  can be missed - do not depend on catching those). `--argc N` also
+  requires exactly N argv elements - the way to tell a quoted
+  space-containing argument from the same text as separate arguments
+  (identical when joined). IMPORTANT: shells exec only EXTERNAL
+  commands - builtins (`echo`, `printf`, `true`, `false`, `pwd`,
+  `type`, `cd`, ...) produce no exec event and are invisible to
+  `wait_exec`; anchor such reps on an external command (`whoami`,
+  `date`, `seq`, `/bin/echo`, ...) or on an effect
 - `wait_env <NAME> [regex]` - a command was observed with the env var
   set; this is how exports are verified (ask the student to run any
   command after exporting)

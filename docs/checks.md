@@ -101,7 +101,7 @@ check: |
 
 ## Command execution
 
-### `wait_exec <regex>`
+### `wait_exec [--argc N] <regex>`
 
 Waits until the student runs a command whose **full argv** (joined with
 single spaces) matches the regex. Matching is scoped to student
@@ -125,6 +125,17 @@ Match on argv text, not on outcomes: `wait_exec` proves the command was
 *run*, not that it succeeded. When the effect matters, verify the effect
 (`wait_file`, `wait_port`, ...) and use `wait_exec` for commands that
 leave no trace (`ls`, `cat`, `ps`, `curl`).
+
+`--argc N` additionally requires the argv to have exactly N elements.
+The space-joined argv cannot tell a quoted argument containing spaces
+from the same text split into several arguments - both join to the same
+string - so quoting reps pair the regex with an argv count:
+
+```yaml
+check: |
+  # date '+%A %d' (2 argv elements), not date +%A %d (3 elements)
+  wait_exec --argc 2 '(^|/)date \+%A %d$'
+```
 
 Very short-lived processes are harvested from `/proc` right after the
 exec event; in the rare case the process vanishes before its argv could

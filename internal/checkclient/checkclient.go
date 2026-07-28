@@ -50,12 +50,13 @@ func Main(name string, args []string) int {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
 	timeout := fs.Float64("timeout", 0, "give up after this many seconds (0 = wait forever)")
 	now := fs.Bool("now", false, "single instant check, no waiting")
+	argc := fs.Int("argc", 0, "wait_exec only: also require exactly this many argv elements")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 	args = fs.Args()
 
-	c := &client{sock: os.Getenv("GYM_SOCK"), since: sinceSeq()}
+	c := &client{sock: os.Getenv("GYM_SOCK"), since: sinceSeq(), argc: *argc}
 	deadline := time.Now().Add(365 * 24 * time.Hour)
 	if *timeout > 0 {
 		deadline = time.Now().Add(time.Duration(*timeout * float64(time.Second)))
@@ -83,6 +84,7 @@ func sinceSeq() uint64 {
 type client struct {
 	sock  string
 	since uint64
+	argc  int
 }
 
 func (c *client) http() *http.Client {
@@ -171,9 +173,9 @@ func (c *client) run(name string, args []string, deadline time.Time) (bool, erro
 		})
 	case "wait_exec":
 		if len(args) != 1 {
-			return false, fmt.Errorf("usage: wait_exec <regex>")
+			return false, fmt.Errorf("usage: wait_exec [--argc N] <regex>")
 		}
-		return c.execWait(execWaitRequest{Regex: args[0]}, oneShot, deadline)
+		return c.execWait(execWaitRequest{Regex: args[0], Argc: c.argc}, oneShot, deadline)
 	case "wait_env":
 		if len(args) < 1 || len(args) > 2 {
 			return false, fmt.Errorf("usage: wait_env <NAME> [regex]")
@@ -505,6 +507,7 @@ func (c *client) getShells() ([]shellInfo, error) {
 type execWaitRequest struct {
 	After      uint64  `json:"after"`
 	Regex      string  `json:"regex"`
+	Argc       int     `json:"argc"`
 	EnvName    string  `json:"envName"`
 	EnvRegex   string  `json:"envRegex"`
 	TimeoutSec float64 `json:"timeoutSec"`

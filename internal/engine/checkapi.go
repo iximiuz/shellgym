@@ -75,6 +75,7 @@ func (a *checkAPI) handleSeq(w http.ResponseWriter, r *http.Request) {
 type ExecWaitRequest struct {
 	After      uint64  `json:"after"`      // only events with Seq > After
 	Regex      string  `json:"regex"`      // matched against the joined argv
+	Argc       int     `json:"argc"`       // >0: argv must have exactly this many elements
 	EnvName    string  `json:"envName"`    // if set: match process env instead
 	EnvRegex   string  `json:"envRegex"`   //
 	TimeoutSec float64 `json:"timeoutSec"` // <=0: practically forever
@@ -122,6 +123,12 @@ func (a *checkAPI) handleExecWait(w http.ResponseWriter, r *http.Request) {
 			return false
 		}
 		if argvRe != nil && !argvRe.MatchString(strings.Join(ev.Argv, " ")) {
+			return false
+		}
+		// Argv-count matching: the joined-argv regex cannot tell a quoted
+		// single argument from the same text split into several arguments
+		// (both join to the same string) - the count can.
+		if req.Argc > 0 && len(ev.Argv) != req.Argc {
 			return false
 		}
 		if req.EnvName != "" {
