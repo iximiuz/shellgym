@@ -34,6 +34,9 @@
   --task-soft: #eff6ff;                /* SimpleTask running: blue-50 */
   --task-line: #bae6fd;                /* sky-200 */
   --task-fill: #38bdf8;                /* sky-400 */
+  --tip-soft: #f5f3ff;                 /* violet-50 */
+  --tip-line: #ddd6fe;                 /* violet-200 */
+  --tip-ink: #6d28d9;                  /* violet-700 */
   --hint-bg: #edf6fc;                  /* HintBox: labs frost-light */
   --hint-line: color-mix(in srgb, #45aeee 40%, transparent);
   --hint-ink: #4078c0;
@@ -79,6 +82,9 @@
   --task-soft: rgba(56, 189, 248, .07);
   --task-line: rgba(56, 189, 248, .30);
   --task-fill: #38bdf8;
+  --tip-soft: rgba(167, 139, 250, .08);
+  --tip-line: rgba(167, 139, 250, .30);
+  --tip-ink: #a78bfa;                  /* violet-400 */
   --hint-bg: rgba(56, 189, 248, .08);
   --hint-line: rgba(56, 189, 248, .28);
   --hint-ink: #7dd3fc;
@@ -491,20 +497,20 @@ button { font: inherit; color: inherit; }
 
 /* ---------- tips ---------- */
 /* always-visible technique callout (keystrokes, completion, history);
-   sky/task-blue family so it reads "terminal technique", not "help me" */
+   violet family - distinct from the sky-blue task boxes */
 .tip-box {
-  border: 1px solid var(--task-line); border-radius: 10px;
-  margin: 14px 0; background: var(--task-soft);
+  border: 1px solid var(--tip-line); border-radius: 10px;
+  margin: 14px 0; background: var(--tip-soft);
 }
 .tip-head {
   display: flex; align-items: center; gap: 8px;
   padding: 10px 14px 0; font-weight: 600; font-size: 13px;
-  letter-spacing: .02em; color: var(--accent);
+  letter-spacing: .02em; color: var(--tip-ink);
 }
 .tip-icon { width: 18px; height: 18px; flex: 0 0 auto; }
 .tip-box .tip-body { padding: 6px 14px 10px; font-size: 14px; }
 .tip-box .tip-body p { margin: 6px 0; }
-.tip-box .tip-body code { background: color-mix(in srgb, var(--accent-hi) 14%, transparent); }
+.tip-box .tip-body code { background: color-mix(in srgb, var(--tip-ink) 10%, transparent); }
 
 /* ---------- locked (future) unit preview ---------- */
 /* lock in the unit header, mirroring .title-check */
