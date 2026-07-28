@@ -76,6 +76,7 @@ type ExecWaitRequest struct {
 	After      uint64  `json:"after"`      // only events with Seq > After
 	Regex      string  `json:"regex"`      // matched against the joined argv
 	Argc       int     `json:"argc"`       // >0: argv must have exactly this many elements
+	Latest     bool    `json:"latest"`     // prefer the newest buffered match over the oldest
 	EnvName    string  `json:"envName"`    // if set: match process env instead
 	EnvRegex   string  `json:"envRegex"`   //
 	TimeoutSec float64 `json:"timeoutSec"` // <=0: practically forever
@@ -142,7 +143,11 @@ func (a *checkAPI) handleExecWait(w http.ResponseWriter, r *http.Request) {
 		}
 		return true
 	}
-	ev, ok := a.watcher.WaitMatch(r.Context(), req.After, time.Now().Add(timeout), match)
+	wait := a.watcher.WaitMatch
+	if req.Latest {
+		wait = a.watcher.WaitMatchLatest
+	}
+	ev, ok := wait(r.Context(), req.After, time.Now().Add(timeout), match)
 	writeJSON(w, ExecWaitResponse{Matched: ok, Event: ev})
 }
 

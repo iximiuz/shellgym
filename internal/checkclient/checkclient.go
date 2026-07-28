@@ -51,12 +51,13 @@ func Main(name string, args []string) int {
 	timeout := fs.Float64("timeout", 0, "give up after this many seconds (0 = wait forever)")
 	now := fs.Bool("now", false, "single instant check, no waiting")
 	argc := fs.Int("argc", 0, "wait_exec only: also require exactly this many argv elements")
+	latest := fs.Bool("latest", false, "wait_exec only: prefer the newest buffered matching command over the oldest")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 	args = fs.Args()
 
-	c := &client{sock: os.Getenv("GYM_SOCK"), since: sinceSeq(), argc: *argc}
+	c := &client{sock: os.Getenv("GYM_SOCK"), since: sinceSeq(), argc: *argc, latest: *latest}
 	deadline := time.Now().Add(365 * 24 * time.Hour)
 	if *timeout > 0 {
 		deadline = time.Now().Add(time.Duration(*timeout * float64(time.Second)))
@@ -82,9 +83,10 @@ func sinceSeq() uint64 {
 }
 
 type client struct {
-	sock  string
-	since uint64
-	argc  int
+	sock   string
+	since  uint64
+	argc   int
+	latest bool
 }
 
 func (c *client) http() *http.Client {
@@ -173,9 +175,10 @@ func (c *client) run(name string, args []string, deadline time.Time) (bool, erro
 		})
 	case "wait_exec":
 		if len(args) != 1 {
-			return false, fmt.Errorf("usage: wait_exec [--argc N] <regex>")
+			return false, fmt.Errorf("usage: wait_exec [--argc N] [--latest] <regex>")
 		}
-		return c.execWait(execWaitRequest{Regex: args[0], Argc: c.argc}, oneShot, deadline)
+		req := execWaitRequest{Regex: args[0], Argc: c.argc, Latest: c.latest}
+		return c.execWait(req, oneShot, deadline, true)
 	case "wait_env":
 		if len(args) < 1 || len(args) > 2 {
 			return false, fmt.Errorf("usage: wait_env <NAME> [regex]")
@@ -184,7 +187,7 @@ func (c *client) run(name string, args []string, deadline time.Time) (bool, erro
 		if len(args) == 2 {
 			req.EnvRegex = args[1]
 		}
-		return c.execWait(req, oneShot, deadline)
+		return c.execWait(req, oneShot, deadline, false)
 	case "wait_file":
 		if len(args) != 1 {
 			return false, fmt.Errorf("usage: wait_file <path-or-glob>")
@@ -508,6 +511,7 @@ type execWaitRequest struct {
 	After      uint64  `json:"after"`
 	Regex      string  `json:"regex"`
 	Argc       int     `json:"argc"`
+	Latest     bool    `json:"latest"`
 	EnvName    string  `json:"envName"`
 	EnvRegex   string  `json:"envRegex"`
 	TimeoutSec float64 `json:"timeoutSec"`
@@ -515,9 +519,15 @@ type execWaitRequest struct {
 
 type execWaitResponse struct {
 	Matched bool `json:"matched"`
+	Event   struct {
+		Argv []string `json:"argv"`
+	} `json:"event"`
 }
 
-func (c *client) execWait(req execWaitRequest, oneShot bool, deadline time.Time) (bool, error) {
+// execWait blocks on the daemon's /exec/wait. With echoArgv (wait_exec),
+// the matched command's argv is printed space-joined, so checks can branch
+// on WHICH command satisfied the pattern.
+func (c *client) execWait(req execWaitRequest, oneShot bool, deadline time.Time, echoArgv bool) (bool, error) {
 	if c.sock == "" {
 		return false, fmt.Errorf("GYM_SOCK not set (check must run inside a task script)")
 	}
@@ -539,6 +549,9 @@ func (c *client) execWait(req execWaitRequest, oneShot bool, deadline time.Time)
 	var out execWaitResponse
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		return false, err
+	}
+	if out.Matched && echoArgv {
+		fmt.Println(strings.Join(out.Event.Argv, " "))
 	}
 	return out.Matched, nil
 }

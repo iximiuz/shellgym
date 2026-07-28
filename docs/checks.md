@@ -101,11 +101,12 @@ check: |
 
 ## Command execution
 
-### `wait_exec [--argc N] <regex>`
+### `wait_exec [--argc N] [--latest] <regex>`
 
 Waits until the student runs a command whose **full argv** (joined with
-single spaces) matches the regex. Matching is scoped to student
-activity:
+single spaces) matches the regex. On success it prints the matched
+command's argv (space-joined), so a check can branch on *which* command
+satisfied the pattern. Matching is scoped to student activity:
 
 - only commands executed **after the current unit was activated** count
   (earlier history never satisfies a fresh unit);
@@ -135,6 +136,21 @@ string - so quoting reps pair the regex with an argv count:
 check: |
   # date '+%A %d' (2 argv elements), not date +%A %d (3 elements)
   wait_exec --argc 2 '(^|/)date \+%A %d$'
+```
+
+`--latest` makes the **newest** buffered match win instead of the
+oldest. Use it whenever the check judges the student's most recent
+answer - typically a right/wrong branch over an alternation. Without it,
+the first (wrong) answer since activation would keep matching on every
+restart after a `hint_exit`, and a later correct answer could never be
+seen:
+
+```yaml
+check: |
+  REPORT=$(wait_exec --latest '(^|/)(hostname|whoami)$')
+  [[ "$REPORT" == *hostname* ]] || hint_exit "whoami is the answer for a status of 0 — look again."
+hint: |
+  echo "No report yet - run one of the two commands."
 ```
 
 Very short-lived processes are harvested from `/proc` right after the

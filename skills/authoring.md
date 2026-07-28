@@ -145,18 +145,24 @@ Rules and behaviors:
   `TRAVELER=$(wait_cwd "/tmp/gym/$D") || exit 1` then
   `set_var TRAVELER "$TRAVELER"` in one unit, and
   `wait_cwd "$TRAVELER" "$GYM_USER_HOME"` in the unit that `needs:` it
-- `wait_exec [--argc N] <regex>` - the student ran a command matching
-  regex (matched against full argv joined with spaces; only tty-attached
-  processes of the observed user, executed after the unit's activation,
-  count; matched commands are buffered, so a command run just before the
-  check restarted still passes; commands typed at human speed are
-  captured reliably, but processes spawned in tight machine-speed loops
-  can be missed - do not depend on catching those). `--argc N` also
-  requires exactly N argv elements - the way to tell a quoted
-  space-containing argument from the same text as separate arguments
-  (identical when joined). IMPORTANT: shells exec only EXTERNAL
-  commands - builtins (`echo`, `printf`, `true`, `false`, `pwd`,
-  `type`, `cd`, ...) produce no exec event and are invisible to
+- `wait_exec [--argc N] [--latest] <regex>` - the student ran a command
+  matching regex (matched against full argv joined with spaces; only
+  tty-attached processes of the observed user, executed after the
+  unit's activation, count; matched commands are buffered, so a command
+  run just before the check restarted still passes; commands typed at
+  human speed are captured reliably, but processes spawned in tight
+  machine-speed loops can be missed - do not depend on catching those).
+  On success prints the matched command's argv, so a check can branch
+  on WHICH command satisfied the pattern. `--argc N` also requires
+  exactly N argv elements - the way to tell a quoted space-containing
+  argument from the same text as separate arguments (identical when
+  joined). `--latest` prefers the newest buffered match over the
+  oldest - required for right/wrong-branch checks
+  (`REPORT=$(wait_exec --latest '(^|/)(right|wrong)$')` then `case` +
+  `hint_exit` on the wrong branch), because the oldest wrong answer
+  would otherwise keep matching on every post-hint restart. IMPORTANT: shells exec only
+  EXTERNAL commands - builtins (`echo`, `printf`, `true`, `false`,
+  `pwd`, `type`, `cd`, ...) produce no exec event and are invisible to
   `wait_exec`; anchor such reps on an external command (`whoami`,
   `date`, `seq`, `/bin/echo`, ...) or on an effect
 - `wait_env <NAME> [regex]` - a command was observed with the env var

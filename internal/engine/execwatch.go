@@ -89,11 +89,26 @@ func (w *ExecWatcher) Seq() uint64 {
 }
 
 // WaitMatch blocks until an event with Seq > after matches fn, returning it.
-// Returns false when the deadline passes, ctx is canceled (e.g. the waiting
-// check script was killed and its API connection dropped - without this,
-// every killed attempt would leak a waiter that keeps scanning the ring on
-// each broadcast), or the watcher closes.
+// Among already-buffered events the OLDEST match wins. Returns false when
+// the deadline passes, ctx is canceled (e.g. the waiting check script was
+// killed and its API connection dropped - without this, every killed
+// attempt would leak a waiter that keeps scanning the ring on each
+// broadcast), or the watcher closes.
 func (w *ExecWatcher) WaitMatch(ctx context.Context, after uint64, deadline time.Time, fn func(ExecEvent) bool) (ExecEvent, bool) {
+	return w.waitMatch(ctx, after, deadline, fn, false)
+}
+
+// WaitMatchLatest is WaitMatch, except that among already-buffered events
+// the NEWEST match wins. A check that judges the student's most recent
+// answer (branching right/wrong and restarting after a hint) needs this:
+// with oldest-first matching, the first wrong answer since activation
+// would keep winning every restart and a later correct one could never be
+// seen.
+func (w *ExecWatcher) WaitMatchLatest(ctx context.Context, after uint64, deadline time.Time, fn func(ExecEvent) bool) (ExecEvent, bool) {
+	return w.waitMatch(ctx, after, deadline, fn, true)
+}
+
+func (w *ExecWatcher) waitMatch(ctx context.Context, after uint64, deadline time.Time, fn func(ExecEvent) bool, latest bool) (ExecEvent, bool) {
 	timer := time.AfterFunc(time.Until(deadline), func() {
 		w.mu.Lock()
 		w.cond.Broadcast()
@@ -114,9 +129,17 @@ func (w *ExecWatcher) WaitMatch(ctx context.Context, after uint64, deadline time
 		// The ring ascends by Seq - skip the already-scanned prefix instead
 		// of re-running fn over all 4096 entries on every wake-up.
 		i := sort.Search(len(w.ring), func(i int) bool { return w.ring[i].Seq > scanned })
-		for _, ev := range w.ring[i:] {
-			if fn(ev) {
-				return ev, true
+		if latest {
+			for j := len(w.ring) - 1; j >= i; j-- {
+				if fn(w.ring[j]) {
+					return w.ring[j], true
+				}
+			}
+		} else {
+			for _, ev := range w.ring[i:] {
+				if fn(ev) {
+					return ev, true
+				}
 			}
 		}
 		scanned = w.seq
@@ -251,15 +274,15 @@ func (w *ExecWatcher) netlinkLoop(sock int) {
 				if what == procEventExec {
 					// exec event: process pid at pe+16 (after what, cpu, timestamp[8])
 					pid := int(le.Uint32(buf[pe+16:]))
-					// Harvest concurrently: a burst of execs (shell pipelines,
-					// login scripts) harvested serially would delay the later
-					// /proc reads past the lifetime of short-lived commands
-					// like `ss`, silently dropping their events.
-					go func(pid int) {
-						if ev, ok := harvestProc(pid); ok {
-							w.publish(ev)
-						}
-					}(pid)
+					// Harvest INLINE: a goroutine hop puts the /proc reads at
+					// the scheduler's mercy, and a ~1ms process (hostname in
+					// `whoami; hostname; tty`) can exit before the goroutine
+					// ever runs, silently dropping its event. The serial reads
+					// cost ~50us per exec and the 8MB socket buffer absorbs
+					// bursts while the loop catches up.
+					if ev, ok := harvestProc(pid); ok {
+						w.publish(ev)
+					}
 				}
 			}
 			off += nlmsgAlign(msgLen)

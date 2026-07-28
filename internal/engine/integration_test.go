@@ -602,6 +602,62 @@ func TestHintExitBuiltin(t *testing.T) {
 	}
 }
 
+const hintExitVsHintBlockUnit = `---
+title: hint_exit wins over hint block
+tasks:
+  gated:
+    check: |
+      wait_file --timeout 1 /tmp/shellgym-hvh/ok.txt || hint_exit "specific"
+    hint: |
+      echo "generic"
+---
+::task{name="gated"}
+w
+::
+`
+
+// After an attempt that ended in hint_exit, the engine must NOT run the
+// task's hint: block - the generic message would overwrite the specific
+// one the check just pushed.
+func TestHintBlockSkippedAfterHintExit(t *testing.T) {
+	te := newTestEnv(t, map[string]string{"010.m/010.hvh/unit.md": hintExitVsHintBlockUnit})
+	defer os.RemoveAll("/tmp/shellgym-hvh")
+
+	if err := te.eng.ActivateUnit("m/hvh"); err != nil {
+		t.Fatal(err)
+	}
+	// The check fails fast, so hint_exit attempts churn well past the 1s
+	// HintInterval - plenty of opportunity for the hint: block to sneak in
+	// if the engine let it.
+	sawSpecific := false
+	deadline := time.After(6 * time.Second)
+	for {
+		select {
+		case ev := <-te.events:
+			if d, ok := ev.Data.(HintEvent); ok && ev.Type == "hint" {
+				switch d.Hint {
+				case "specific":
+					sawSpecific = true
+				default:
+					t.Fatalf("hint block ran after hint_exit: %+v", d)
+				}
+			}
+		case <-deadline:
+			if !sawSpecific {
+				t.Fatal("hint_exit hint never arrived")
+			}
+			var stored string
+			te.eng.Store.View(func(dd *state.Data) {
+				stored = dd.Unit("m/hvh").Task("gated").Hint
+			})
+			if stored != "specific" {
+				t.Fatalf("stored hint overwritten: %q", stored)
+			}
+			return
+		}
+	}
+}
+
 const multiHintUnit = `---
 title: Two tasks two hints
 init:

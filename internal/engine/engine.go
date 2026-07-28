@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/iximiuz/labs-content/tools/shellgym/internal/bus"
+	"github.com/iximiuz/labs-content/tools/shellgym/internal/checkclient"
 	"github.com/iximiuz/labs-content/tools/shellgym/internal/content"
 	"github.com/iximiuz/labs-content/tools/shellgym/internal/state"
 )
@@ -564,7 +565,11 @@ func (e *Engine) superviseEdge(ctx context.Context, u *content.Unit, t *content.
 			return
 		}
 		// Attempt failed (usually: wait_* timed out). Maybe refresh the hint.
-		if t.Hint != "" && time.Since(lastHint) >= e.Opts.HintInterval {
+		// A hint_exit attempt already delivered a specific hint - never run
+		// the generic hint: script over it, and count it as the refresh.
+		if res.ExitCode == checkclient.HintExitCode {
+			lastHint = time.Now()
+		} else if t.Hint != "" && time.Since(lastHint) >= e.Opts.HintInterval {
 			lastHint = time.Now()
 			e.runHint(ctx, u, t, vars, res)
 		}
@@ -618,7 +623,10 @@ func (e *Engine) superviseLevel(ctx context.Context, u *content.Unit, t *content
 				unsatisfiedSince = time.Now()
 			}
 		}
-		if status == StatusUnsatisfied && t.Hint != "" &&
+		if res.ExitCode == checkclient.HintExitCode {
+			// hint_exit already delivered a specific hint (see superviseEdge).
+			lastHint = time.Now()
+		} else if status == StatusUnsatisfied && t.Hint != "" &&
 			!unsatisfiedSince.IsZero() && time.Since(unsatisfiedSince) > 5*time.Second &&
 			time.Since(lastHint) >= e.Opts.HintInterval {
 			lastHint = time.Now()
@@ -656,10 +664,19 @@ func (e *Engine) PublishHint(unit, task, hint string) error {
 	if _, ok := u.Front.Tasks[task]; !ok {
 		return fmt.Errorf("unit %s has no task %q", unit, task)
 	}
+	// A check that hint_exits on a buffered wrong answer re-posts the same
+	// message on every restart - suppress the no-op rebroadcasts.
+	changed := false
 	_ = e.Store.Update(func(d *state.Data) {
-		d.Unit(unit).Task(task).Hint = hint
+		t := d.Unit(unit).Task(task)
+		if t.Hint != hint {
+			t.Hint = hint
+			changed = true
+		}
 	})
-	e.Bus.Publish(bus.Event{Type: "hint", Data: HintEvent{Unit: unit, Task: task, Hint: hint}})
+	if changed {
+		e.Bus.Publish(bus.Event{Type: "hint", Data: HintEvent{Unit: unit, Task: task, Hint: hint}})
+	}
 	return nil
 }
 
