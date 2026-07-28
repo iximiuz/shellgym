@@ -1,7 +1,0 @@
-id: navigate-the-filesystem
-title: Navigate the Filesystem
-description: >
-  Muscle memory for moving through Linux: absolute and relative paths,
-  dot and dot-dot, the home directory and its shortcuts, cd -, and
-  directories with names that fight back.
-shellUser: laborant

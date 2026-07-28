@@ -14,7 +14,7 @@ Shell Gym is not intended to replace:
 - Architecture or internals courses.
 - Tasks that require substantial investigation before the student knows what to type.
 
-Its unique role is to build command-line muscle memory while giving the student an initial practical understanding of how Linux behaves.
+Its unique role is to build command-line fluency through repeated practice while giving the student an initial practical understanding of how Linux behaves.
 
 The core learning loop is:
 
@@ -43,6 +43,9 @@ Each path should normally:
 - Contain more reps when the operations are especially simple.
 - Contain fewer reps when the operations require more reasoning or take longer to execute.
 - End with several reps that combine the new skill with earlier skills.
+- Explicitly state its prerequisites.
+- Explicitly state the knowledge it assumes.
+- Avoid task descriptions that require knowledge not listed in the assumed-knowledge section.
 
 The first part of the curriculum should be mostly linear. Once the student has basic terminal, filesystem, process, permission, package, service, and logging skills, the roadmap may branch into:
 
@@ -54,7 +57,191 @@ The first part of the curriculum should be mostly linear. Once the student has b
 - Automation.
 - Troubleshooting.
 
-The learning paths can later be stitched into a visual roadmap with prerequisites and optional branches.
+The learning paths can later be connected in a visual roadmap with prerequisites and optional branches.
+
+---
+
+# General assumptions
+
+The curriculum may assume that the student:
+
+- Knows what a file is.
+- Knows what a directory or folder is.
+- Understands that files are stored on disks or other storage devices.
+- Can use a keyboard and enter text.
+- Can open a terminal application when shown where it is.
+
+The curriculum must not initially assume that the student:
+
+- Understands the Linux single-directory filesystem hierarchy.
+- Knows what `/`, `/home`, `/tmp`, `/etc`, or `/var` mean.
+- Understands absolute and relative paths.
+- Has used a command-line shell.
+- Has written software.
+- Has used Git.
+- Understands source code, repositories, deployments, services, packages, processes, ports, or system administration.
+- Recognizes development or operations terminology unless an earlier path has introduced it.
+
+Knowledge should be introduced before it appears in task descriptions. The terminology and context used in tasks should become more technical as the student progresses through the curriculum.
+
+---
+
+# Scenario continuity
+
+The learning paths should form several connected sequences rather than presenting unrelated task collections.
+
+The continuity should make later tasks feel like a progression from earlier work. It must not create undeclared state dependencies between units or require the student to remember irrelevant fictional details.
+
+No path or task should require prior familiarity with a fictional application merely because that application appeared earlier in the curriculum.
+
+Whenever a path uses an application:
+
+- Reintroduce the application briefly in the path introduction.
+- Explain only the parts relevant to the current path.
+- Make each task understandable without knowledge of earlier application tasks.
+- Keep application-specific behaviour simple and explicit.
+- Ensure that the difficulty comes from the Linux operation being practised, not from understanding the application.
+
+## Paths 1–6: Basic Linux terminal and filesystem work
+
+The student begins using a Linux shell for ordinary file and system operations.
+
+Tasks should use contexts that apply to both workstations and servers:
+
+- Inspecting the current user, host, and working directory.
+- Moving through the user's home directory.
+- Working with temporary files under `/tmp`.
+- Inspecting common system directories at an introductory level.
+- Creating work directories under the home directory.
+- Backing up files.
+- Renaming and organizing configuration or data files.
+- Reading text files.
+- Inspecting generated output.
+
+Do not use development or system-administration plots that require concepts not yet introduced.
+
+Avoid terms such as:
+
+- Repository.
+- Checkout.
+- Deployment.
+- Build artifact.
+- Service configuration.
+- Production logs.
+- Source tree.
+
+These concepts have not yet been introduced.
+
+## Paths 7–10: Command-line work with a simple inventory tool
+
+After learning basic filesystem operations, the student begins working with a small command-line inventory application.
+
+The working application name is **Stockroom**.
+
+Stockroom is a simple tool that reads and writes plain-text inventory records. Example records may describe:
+
+- Asset IDs.
+- Item names.
+- Locations.
+- Quantities.
+- Owners.
+- Status values.
+- Update timestamps.
+
+The command-line tool should remain deliberately simple. A task may state, for example:
+
+> `stockroom list` prints one inventory record per line.
+
+The student should not need to infer command syntax, data formats, or application behaviour from earlier tasks.
+
+Tasks may involve:
+
+- Saving Stockroom output.
+- Filtering inventory records.
+- Finding files containing an asset ID.
+- Sorting records by quantity.
+- Setting an output directory through an environment variable.
+
+Use ordinary paths such as:
+
+- `~/stockroom`
+- `~/stockroom/data`
+- `~/stockroom/reports`
+- `/tmp/stockroom`
+- `/opt/stockroom`
+- `/var/lib/stockroom`
+- `/etc/stockroom`
+
+Do not add `gym`, `shellgym`, `gymtrack`, or similar prefixes to ordinary project, user, process, service, or filesystem names unless the task is specifically about the Shell Gym software itself.
+
+## Paths 11–17: Operating Stockroom Server
+
+Starting with Path 11, introduce **Stockroom Server** as a standalone application context.
+
+Stockroom Server may be described as a background service that exposes inventory data over HTTP and periodically imports records from files.
+
+It can be related to the earlier Stockroom command-line tool, but no path may assume that the learner completed or remembers those earlier tasks.
+
+Every path using Stockroom Server should briefly explain:
+
+- What the service does.
+- Which file, process, socket, user, or endpoint matters for the current tasks.
+- Any application command or data format needed to complete the tasks.
+
+Tasks may involve:
+
+- Starting and stopping the server process.
+- Managing its files and permissions.
+- Installing required packages.
+- Operating a systemd service.
+- Inspecting logs.
+- Checking network configuration.
+- Sending HTTP requests.
+- Inspecting sockets.
+
+At this stage, task descriptions may use common development and operations terms that have already been introduced.
+
+## Paths 18–23: Administering a Linux application host
+
+The student takes responsibility for a Linux host running Stockroom Server or another similarly simple prepared service.
+
+Each path must still reintroduce the relevant service or process independently.
+
+Tasks may involve:
+
+- Routing and firewall rules.
+- Network namespaces.
+- Disks and mounts.
+- Filesystems and LVM.
+- Kernel interfaces.
+- Namespaces and cgroups.
+- Host performance investigation.
+
+These paths may use realistic system-administration terminology because the earlier paths have established the required foundation.
+
+## Paths 24–26: Remote operation and automation
+
+The student operates one or more Linux hosts remotely.
+
+The tasks may use Stockroom Server, but they must not require prior Stockroom knowledge. A task should state all relevant hostnames, paths, commands, endpoints, and expected behaviour.
+
+Tasks may involve:
+
+- SSH access.
+- Secure authentication.
+- Remote file transfer.
+- Bastions and tunnels.
+- Small maintenance scripts.
+- Safe repeatable automation.
+- Structured JSON and YAML data.
+
+## Paths 27–28: Operational troubleshooting
+
+The student diagnoses constrained failures involving commands, files, services, storage, and network components used in earlier paths.
+
+A troubleshooting task may use Stockroom Server or another prepared application. Each task must provide enough application context to understand the expected state without requiring knowledge of previous paths.
+
+The scenarios should remain small enough for Shell Gym. They should not require a long investigation or unfamiliar domain knowledge.
 
 ---
 
@@ -114,6 +301,23 @@ After these foundations, the curriculum may branch.
 
 # 1. Meet the Linux Shell
 
+## Prerequisites
+
+None.
+
+## Assumed knowledge
+
+The student:
+
+- Knows what files and directories are.
+- Can use a keyboard and enter text.
+- Does not need prior terminal or Linux experience.
+- Is not expected to understand the Linux filesystem hierarchy.
+
+## Scenario context
+
+The student opens a Linux terminal for the first time. The tasks introduce command execution through simple actions that do not require development or system-administration knowledge.
+
 ## Goal
 
 Introduce the terminal, the command execution model, and the basic structure of shell commands.
@@ -157,7 +361,7 @@ The student should finish the path comfortable entering commands and interpretin
 - `||`
 - `--`
 
-Not every command listed here needs to count as a separately taught command. Some are merely simple tools for creating observable reps.
+Not every command listed here needs to count as a separately taught command. Some are simple tools for creating observable reps.
 
 ## Helpful task-page tips
 
@@ -172,9 +376,44 @@ Some terminal interaction is difficult to verify directly. Relevant tips should 
 
 These tips can be introduced gradually and repeated where they become useful.
 
+## Rep design
+
+Use simple actions with immediately visible results:
+
+- Print a short message.
+- Print two words as separate arguments.
+- Print one argument containing spaces.
+- Run a command that succeeds.
+- Run a command that fails.
+- Run a fallback command after a failure.
+- Print the current username.
+- Print the host name.
+- Print the current directory.
+- Run a command that succeeds without printing output.
+
+Do not introduce project, source-code, service, package, or system-administration terminology in this path.
+
 ---
 
 # 2. Control the Shell and Ask for Help
+
+## Prerequisites
+
+- Meet the Linux Shell.
+
+## Assumed knowledge
+
+The student:
+
+- Can enter commands.
+- Recognizes commands, arguments, and options.
+- Understands successful and unsuccessful command completion at a basic level.
+- Can read the previous exit status.
+- Is not expected to know how Linux documentation is organized.
+
+## Scenario context
+
+The student continues learning to operate the terminal and needs to recover from mistakes, stop commands, and find command documentation without leaving the shell.
 
 ## Goal
 
@@ -197,7 +436,7 @@ Teach the student how to inspect commands, obtain documentation, interrupt work,
 - Resuming a suspended command in the foreground.
 - Recognizing that `Ctrl-C` sends an interrupt rather than closing the terminal.
 - Recognizing that `Ctrl-Z` suspends rather than terminates.
-- Recovering from a command that appears to hang.
+- Recovering from a command that appears not to finish.
 - Checking whether the previous command succeeded.
 - Finding basic information without being given exact syntax.
 
@@ -222,17 +461,64 @@ Teach the student how to inspect commands, obtain documentation, interrupt work,
 
 The path does not need to verify every pager or line-editing keystroke. It should verify the resulting command execution where possible and present the interaction details as contextual tips.
 
+## Rep design
+
+Use ordinary terminal situations:
+
+- Check whether a command is available.
+- Determine whether a name refers to a builtin or executable.
+- Open the documentation for a command used in the previous path.
+- Find the option that changes a command's output.
+- Stop a command that continues running.
+- Suspend and resume a command.
+- Search a manual page for a word.
+- Exit a manual page and return to the prompt.
+
+Do not require the student to understand services, source code, or package management.
+
 ---
 
 # 3. Navigate the Filesystem
 
+## Prerequisites
+
+- Meet the Linux Shell.
+- Control the Shell and Ask for Help.
+
+## Assumed knowledge
+
+The student:
+
+- Knows what files and directories are.
+- Can enter commands and read their output.
+- Can request command help.
+- Does not yet know the Linux single-directory hierarchy.
+- Does not yet know absolute or relative path syntax.
+
+## Scenario context
+
+The student begins accessing files and system locations from the terminal. The tasks use the home directory, temporary directories, and common Linux directories while introducing the Linux filesystem hierarchy.
+
 ## Goal
 
-Build strong muscle memory for moving through the Linux filesystem.
+Build strong familiarity with moving through the Linux filesystem and introduce the Linux single-directory hierarchy, including the purpose of important locations such as `/`, `/home`, and `/tmp`.
 
 This path may contain more than 30 reps because most navigation operations are quick.
 
 ## Topics
+
+### Linux filesystem hierarchy
+
+- Understanding that Linux exposes one directory hierarchy beginning at `/`.
+- Recognizing `/` as the root directory.
+- Understanding that mounted storage appears at locations inside the same hierarchy.
+- Recognizing `/home` as the usual parent directory for user home directories.
+- Recognizing the student's home directory.
+- Recognizing `/tmp` as a location for temporary files.
+- Recognizing `/etc`, `/var`, `/usr`, and `/opt` at a superficial level without requiring administration knowledge.
+- Distinguishing the root directory `/` from the root user's home directory `/root`.
+
+### Filesystem navigation
 
 - Printing the current working directory.
 - Recognizing an absolute path.
@@ -256,8 +542,8 @@ This path may contain more than 30 reps because most navigation operations are q
 - Understanding that the working directory belongs to a shell process.
 - Recognizing that separate shells may have different working directories.
 - Navigating from an unknown starting location.
-- Following a chain of filesystem clues.
-- Returning to a known location after exploring elsewhere.
+- Locating a target file by inspecting several directories.
+- Returning to a known location after checking another directory.
 
 ## Likely commands and shell features
 
@@ -273,19 +559,44 @@ This path may contain more than 30 reps because most navigation operations are q
 
 Avoid a sequence of nearly identical tasks such as “change into directory A,” “change into directory B,” and “change into directory C.”
 
-Use varied miniature scenarios:
+Use varied tasks that apply to both workstation and server environments:
 
-- Enter a project source directory.
-- Move from an application directory to its logs.
-- Return to the user's home directory.
-- Jump between a configuration directory and a data directory.
-- Follow relative paths provided by another command.
-- Navigate directories with awkward names.
-- Recover after intentionally entering the wrong directory.
+- Jump to the user's home directory.
+- Jump to a prepared work directory under the home directory.
+- Move from a data directory to its backup directory.
+- Jump to `/tmp`.
+- Inspect the location of a prepared temporary file.
+- Jump from `/var` to `/var/tmp`.
+- Visit `/etc` and return to the previous directory.
+- Navigate directories with spaces in their names.
+- Return to the previous directory after checking another location.
+- Start from an unknown directory and return home.
+- Compare the current directory in two separate terminal sessions.
+- Follow a provided relative path to a target file.
+
+Do not use tasks about checked-out repositories, source trees, deployments, or service configuration.
 
 ---
 
 # 4. List and Create Files
+
+## Prerequisites
+
+- Navigate the Filesystem.
+
+## Assumed knowledge
+
+The student:
+
+- Understands the Linux single-directory hierarchy at an introductory level.
+- Can navigate with absolute and relative paths.
+- Knows the purpose of the home directory and `/tmp`.
+- Understands quoting for paths containing spaces at a basic level.
+- Is not expected to understand Unix permissions beyond recognizing that permission fields exist.
+
+## Scenario context
+
+The student uses the terminal to inspect directories and create files and directory structures under the home directory and `/tmp`.
 
 ## Goal
 
@@ -330,18 +641,44 @@ Teach the student to inspect directory contents and create basic filesystem stru
 
 ## Rep design
 
-Use small scenes such as:
+Use small tasks such as:
 
-- Preparing an application directory.
-- Creating a configuration tree.
-- Creating a directory for daily reports.
-- Finding the newest or largest file in a listing.
-- Revealing an unexpected hidden file.
-- Creating a filename that requires quoting.
+- List files in a work directory.
+- Find the newest backup file.
+- Find the largest file in a directory listing.
+- Show hidden files in the home directory.
+- Create a directory for backups.
+- Create nested directories for data and reports.
+- Create an empty status file.
+- Create a filename that contains spaces.
+- Create a hidden configuration directory.
+- List `/tmp` and the home directory without changing the working directory.
+- Preview which files a glob matches.
+- Work with a filename beginning with `-`.
+
+Do not require project, programming, version-control, package-management, or system-service knowledge.
 
 ---
 
 # 5. Copy, Move, Remove, and Link Files
+
+## Prerequisites
+
+- List and Create Files.
+
+## Assumed knowledge
+
+The student:
+
+- Can navigate the filesystem.
+- Can list files and inspect basic listing metadata.
+- Can create files and directories.
+- Understands basic glob expansion and quoting.
+- Is not expected to understand inodes before this path introduces hard links.
+
+## Scenario context
+
+The student organizes files under the home directory, creates backups, moves generated data, removes temporary files, and learns how links differ from copies.
 
 ## Goal
 
@@ -389,7 +726,22 @@ Supporting commands such as `file` and `stat` may be introduced here or reused f
 
 ## Rep design
 
-Include multiple exercises where destination semantics matter. Many students can run `cp`, but still hesitate over whether a destination path means:
+Use file-management tasks that apply to both workstations and servers:
+
+- Copy a configuration file into a backup directory.
+- Copy several data files into an archive.
+- Rename a generated file to a clearer name.
+- Move temporary output from `/tmp` into the home directory.
+- Move matching data files into a dated directory.
+- Remove a duplicate backup.
+- Remove an empty temporary directory.
+- Remove a generated directory tree.
+- Preview matching files before removing them.
+- Create a convenient symbolic link to a frequently used directory.
+- Repair a broken symbolic link.
+- Compare a copied file with a hard-linked file.
+
+Include multiple exercises where destination semantics matter. Many students can run `cp` but still hesitate over whether a destination path means:
 
 - A new filename.
 - An existing directory.
@@ -401,6 +753,23 @@ This distinction deserves deliberate repetition.
 ---
 
 # 6. Read and Inspect File Contents
+
+## Prerequisites
+
+- Copy, Move, Remove, and Link Files.
+
+## Assumed knowledge
+
+The student:
+
+- Can navigate, list, create, copy, move, and remove files.
+- Understands basic paths, quoting, and globbing.
+- Knows that some files contain text and others may contain binary data.
+- Is not expected to understand application logs or structured operational records yet.
+
+## Scenario context
+
+The student reads configuration fragments, generated reports, status files, and other text files from the terminal. The path introduces methods appropriate for small, large, and growing files.
 
 ## Goal
 
@@ -416,7 +785,7 @@ Teach the student to choose an appropriate way to inspect files based on their s
 - Selecting a specific number of lines.
 - Browsing a large file interactively.
 - Searching while browsing a large file.
-- Following a growing log.
+- Following a growing text file.
 - Recognizing newly appended records.
 - Stopping a follow operation.
 - Counting lines.
@@ -425,10 +794,10 @@ Teach the student to choose an appropriate way to inspect files based on their s
 - Numbering lines.
 - Comparing two versions of a file.
 - Recognizing added, removed, and changed lines.
-- Inspecting an unknown collection of files.
+- Inspecting an unfamiliar collection of files.
 - Choosing between full output, partial output, and interactive browsing.
 - Inspecting a file's type before attempting to read it.
-- Avoiding dumping a very large or binary file directly into the terminal.
+- Avoiding printing a very large or binary file directly into the terminal.
 - Combining navigation, listing, and content inspection.
 
 ## Likely commands
@@ -457,9 +826,48 @@ Interactive `less` behavior can be introduced through tips:
 
 Shell Gym may verify that the correct file was opened with the right tool even if every pager keystroke cannot be observed.
 
+## Rep design
+
+Use tasks such as:
+
+- Read a short configuration fragment.
+- Combine several report parts in order.
+- Check the beginning of an exported data file.
+- Check the latest entries in a growing status file.
+- Browse a large list without printing all of it.
+- Search for a value inside a large text file.
+- Count records in a file.
+- Compare an original configuration with a backup.
+- Check a file's type before opening it.
+- Avoid printing a prepared binary file to the terminal.
+
+The final reps may introduce Stockroom as a simple command-line tool that produces plain-text inventory records. The task must explain the command and output without assuming prior familiarity.
+
 ---
 
 # 7. Redirect Streams and Build Pipelines
+
+## Prerequisites
+
+- Read and Inspect File Contents.
+
+## Assumed knowledge
+
+The student:
+
+- Can inspect files and command output.
+- Can use basic shell operators such as `;`, `&&`, and `||`.
+- Understands that commands may succeed or fail.
+- Does not yet need a formal understanding of file descriptors.
+- Does not need prior familiarity with Stockroom.
+
+## Scenario context
+
+This path uses a small command-line tool named Stockroom.
+
+Stockroom prints simple inventory records. Each task states the relevant command and what it prints. For example, a task may explain that `stockroom list` prints one record per line.
+
+The student needs to save, combine, and filter this output.
 
 ## Goal
 
@@ -509,10 +917,15 @@ Prefer effects over syntax-recitation tasks.
 
 Good:
 
-- Save only the error messages from a failing command.
-- Count matching records from a generated stream.
+- Save the inventory list printed by `stockroom list`.
+- Append a later inventory snapshot without deleting the earlier one.
+- Run a prepared Stockroom command that emits diagnostics and save only its errors.
+- Count the records produced by a stated command.
 - Display and save a filtered list.
-- Append a new diagnostic result without losing the previous one.
+- Feed a prepared records file into a command through stdin.
+- Keep useful output and diagnostics in separate files.
+
+Each task must explain any Stockroom command it uses. The student should not need to remember Stockroom syntax from another rep.
 
 Weak:
 
@@ -522,6 +935,28 @@ Weak:
 ---
 
 # 8. Search Files and Text
+
+## Prerequisites
+
+- Redirect Streams and Build Pipelines.
+
+## Assumed knowledge
+
+The student:
+
+- Can navigate and manipulate files.
+- Can inspect file contents.
+- Can use redirection and pipelines.
+- Does not need prior regular-expression knowledge.
+- Does not need prior familiarity with Stockroom.
+
+## Scenario context
+
+This path uses prepared Stockroom inventory files.
+
+A Stockroom record is a plain-text line containing fields such as an asset ID, item name, location, quantity, or status. Each task explains the relevant record format and target value.
+
+The student needs to find specific files and records.
 
 ## Goal
 
@@ -574,18 +1009,44 @@ Teach the student to locate information in file contents and locate files by the
 
 Use scenarios such as:
 
-- Find a request ID in rotated logs.
-- Exclude health-check requests.
-- Find the configuration file that defines a port.
-- Locate recently modified files.
+- Find a stated asset ID in a prepared inventory file.
+- Exclude records whose status field is `retired`.
+- Show context around a malformed record.
+- Search several archived inventory files.
+- Search item names case-insensitively.
+- Count records matching a specified location.
+- Find which configuration file contains a stated value.
+- Locate recently modified report files.
 - Find unexpectedly executable files.
 - Remove only matching temporary files.
 - Find files and then inspect their contents.
 - Find files and move them to an archive directory.
 
+Each task must define the relevant record format or file layout. No Stockroom knowledge should carry over implicitly.
+
 ---
 
 # 9. Transform Text and Records
+
+## Prerequisites
+
+- Search Files and Text.
+
+## Assumed knowledge
+
+The student:
+
+- Can search files and text.
+- Can build pipelines and redirect output.
+- Understands plain-text records and delimited fields at an introductory level.
+- Has not previously used `sed` or `awk`.
+- Does not need prior familiarity with Stockroom.
+
+## Scenario context
+
+This path uses plain-text inventory records produced for Stockroom.
+
+Each task defines the field separator and meaning of the relevant fields. The student needs to reorder, extract, normalize, count, and summarize the records.
 
 ## Goal
 
@@ -631,11 +1092,51 @@ Introductory use of:
 - `sed`
 - `awk`
 
-A path may technically contain more than five command names because several are tiny filters. The author should still minimize simultaneous novelty and reuse commands across many reps.
+A path may technically contain more than five command names because several are small filters. The author should still minimize simultaneous novelty and reuse commands across many reps.
+
+## Rep design
+
+Use inventory-data tasks:
+
+- Sort records by item name.
+- Sort records numerically by quantity.
+- Count repeated location values.
+- Extract the asset ID field from a stated format.
+- Convert status values to a consistent case.
+- Remove empty or comment lines.
+- Replace an obsolete location code.
+- Filter records whose quantity exceeds a stated threshold.
+- Calculate a total quantity.
+- Preserve a header while sorting the remaining records.
+- Produce a summary report from several pipeline stages.
+
+Every task must include enough format information to be completed independently.
 
 ---
 
 # 10. Control the Shell Environment
+
+## Prerequisites
+
+- Transform Text and Records.
+
+## Assumed knowledge
+
+The student:
+
+- Can compose commands with pipelines and redirects.
+- Understands basic quoting for filenames.
+- Has seen `$?` and `$HOME`.
+- Does not yet understand shell-variable scope, environment inheritance, or command lookup in detail.
+- Does not need prior familiarity with Stockroom.
+
+## Scenario context
+
+This path uses a standalone Stockroom command-line tool.
+
+The tool can read values such as the data directory and output format from environment variables. Each task identifies the relevant variable and expected behaviour.
+
+The student needs to control these values through shell variables and environment variables.
 
 ## Goal
 
@@ -714,10 +1215,41 @@ Quoting deserves heavy repetition. Reps should use realistic awkward values:
 - Dollar signs that must not expand.
 - Command output containing whitespace.
 - Paths assembled from several variables.
+- A Stockroom data directory supplied through a stated environment variable.
+- A one-command output-format override.
+- A command installed in a prepared executable directory.
+- A temporary `PATH` extension.
+
+Each task must explain any Stockroom-specific variable or behaviour it uses.
 
 ---
 
 # 11. Work with Processes and Jobs
+
+## Prerequisites
+
+- Control the Shell Environment.
+
+## Assumed knowledge
+
+The student:
+
+- Can run foreground commands.
+- Has interrupted and suspended commands.
+- Can use redirection.
+- Understands shell variables and command lookup.
+- Does not need prior knowledge of process trees, signals, file descriptors, or scheduling.
+- Does not need prior familiarity with Stockroom.
+
+## Scenario context
+
+This path introduces **Stockroom Server** as a standalone application.
+
+Stockroom Server is a prepared program that can run in the foreground or background and serve inventory data. The tasks provide the exact start command or describe how the prepared process was launched.
+
+No knowledge of the Stockroom command-line tool is required.
+
+The student needs to inspect server processes, keep jobs running, stop incorrect processes, and determine which files or sockets they use.
 
 ## Goal
 
@@ -777,9 +1309,50 @@ Supporting commands:
 - `fuser`
 - `ulimit`
 
+## Rep design
+
+Use small local-process scenarios:
+
+- Find a running Stockroom Server process.
+- Distinguish two prepared processes with similar names.
+- Inspect the command line of a process.
+- Stop a process normally.
+- Stop a process that ignores SIGTERM.
+- Start a prepared report generator in the background.
+- Bring a background job to the foreground.
+- Keep a command running after the shell exits.
+- Find the process using a prepared file.
+- Inspect a process's open file descriptors.
+- Adjust the priority of a disposable process.
+
+Each task must state what the relevant process does and how it can be identified.
+
 ---
 
 # 12. Work with Users, Groups, and Permissions
+
+## Prerequisites
+
+- Work with Processes and Jobs.
+
+## Assumed knowledge
+
+The student:
+
+- Can inspect processes and their owners.
+- Can read long-format file listings.
+- Recognizes owner, group, and permission fields but has not yet studied their complete meaning.
+- Understands that several user accounts can exist on one Linux host.
+- Does not yet understand Unix permission evaluation.
+- Does not need prior familiarity with Stockroom Server.
+
+## Scenario context
+
+This path uses a prepared installation of Stockroom Server.
+
+The service reads inventory data from `/var/lib/stockroom` and writes reports to a separate directory. Each task explains which user or group needs access and what operation must succeed.
+
+The student needs to configure who can read, modify, or run the relevant files and directories.
 
 ## Goal
 
@@ -849,11 +1422,46 @@ Supporting commands:
 
 ## Rep design
 
+Use realistic access tasks:
+
+- Give the stated Stockroom service user read access to an inventory file.
+- Allow a prepared operator group to update a data directory.
+- Prevent other users from reading a configuration file.
+- Repair incorrect ownership.
+- Allow directory traversal without allowing directory listing.
+- Make a maintenance script executable without changing unrelated permissions.
+- Create files with private default permissions.
+- Create files with group-shared default permissions.
+
+Each task must identify the relevant user, group, file, and required operation. No application knowledge should be assumed.
+
 Directory permissions need dedicated reps. They are commonly misunderstood even by students who can decode `rwx` on regular files.
 
 ---
 
 # 13. Use Advanced Linux Access Controls
+
+## Prerequisites
+
+- Work with Users, Groups, and Permissions.
+
+## Assumed knowledge
+
+The student:
+
+- Understands UIDs, GIDs, ownership, mode bits, and `umask`.
+- Can use `sudo` in a controlled environment.
+- Understands file and directory permission differences.
+- Does not yet understand ACLs, capabilities, or mandatory access controls.
+- Does not need prior familiarity with Stockroom Server.
+
+## Scenario context
+
+This path uses prepared Stockroom files and helper programs.
+
+Ordinary owner, group, and mode permissions are insufficient for several stated access requirements. Each task describes the required access or operation directly.
+
+The student uses additional Linux access-control mechanisms and diagnoses which mechanism blocks an operation.
 
 ## Goal
 
@@ -906,9 +1514,45 @@ Supporting tools may include:
 
 Distro-specific units should use `labels` and `requires` where needed.
 
+## Rep design
+
+Use contained access scenarios:
+
+- Configure a shared import directory.
+- Ensure new files inherit the intended group.
+- Grant one additional user access without changing the owning group.
+- Configure a default ACL for new report files.
+- Find files with special permission bits.
+- Grant a prepared helper executable one narrow capability.
+- Remove an unnecessary capability.
+- Determine whether an access failure comes from mode bits, an ACL, AppArmor, or SELinux.
+
+Every task must explicitly state the expected operation and the relevant file or process.
+
 ---
 
 # 14. Install and Inspect Software Packages
+
+## Prerequisites
+
+- Use Advanced Linux Access Controls.
+
+## Assumed knowledge
+
+The student:
+
+- Can navigate system directories.
+- Can inspect files, permissions, and processes.
+- Can use `sudo`.
+- Understands commands and executables but does not yet understand how Linux distributions package software.
+- Is not expected to know distribution families before this path.
+- Does not need prior familiarity with Stockroom Server.
+
+## Scenario context
+
+This path uses a prepared Stockroom Server installation that depends on ordinary command-line utilities.
+
+Each task states which command or capability is needed. The student identifies the Linux distribution and installs, removes, and inspects packages safely.
 
 ## Goal
 
@@ -956,9 +1600,48 @@ Package-manager-specific units should have distro-filtered variants.
 
 The learning outcomes should stay consistent even when the commands differ.
 
+## Rep design
+
+Use concrete package-management tasks:
+
+- Identify the distribution.
+- Find which package provides a stated command.
+- Inspect a package before installing it.
+- Install a non-essential utility required by a prepared maintenance command.
+- Find the files installed by a package.
+- Find which package owns an executable.
+- Compare the installed and available versions.
+- Perform a dry run before removal.
+- Remove a disposable package.
+- Distinguish package removal from configuration purging.
+
+The application context should remain incidental. The task must state the missing command or required package property directly.
+
 ---
 
 # 15. Operate Services, Logs, and Scheduled Jobs
+
+## Prerequisites
+
+- Install and Inspect Software Packages.
+
+## Assumed knowledge
+
+The student:
+
+- Can inspect and control processes.
+- Can manage files, permissions, and packages.
+- Understands that a program can run in the background.
+- Has not yet operated systemd services, the journal, cron, or timers.
+- Does not need prior familiarity with Stockroom Server.
+
+## Scenario context
+
+This path uses a prepared systemd service named `stockroom.service`.
+
+The service exposes inventory data and writes diagnostic messages to the journal. A separate scheduled job imports records periodically.
+
+Each task explains the relevant service, file, or scheduled operation independently.
 
 ## Goal
 
@@ -1025,9 +1708,52 @@ Teach day-to-day service management, log inspection, and recurring task scheduli
 
 Supporting commands may include `systemctl list-timers`.
 
+## Rep design
+
+Use a dedicated Stockroom service and timer:
+
+- Check whether the service is running.
+- Start and stop it.
+- Reload a stated configuration change where supported.
+- Enable it without starting it.
+- Start it without enabling it.
+- Find the failed unit.
+- Read the unit file.
+- Inspect a drop-in override.
+- Find the error that caused startup failure.
+- Follow new service log entries.
+- Inspect logs from the current boot.
+- Find the next scheduled import.
+- Run the scheduled service manually.
+- Diagnose a cron job with a missing environment variable.
+
+Every task must state the relevant unit name and expected behaviour.
+
 ---
 
 # 16. Inspect Network Configuration and Connectivity
+
+## Prerequisites
+
+- Operate Services, Logs, and Scheduled Jobs.
+
+## Assumed knowledge
+
+The student:
+
+- Can operate a service and inspect its logs.
+- Understands that hosts communicate over networks.
+- Recognizes hostnames at a basic level.
+- Is not expected to understand interfaces, routes, ARP, DNS internals, TCP, or ports before they are introduced.
+- Does not need prior familiarity with Stockroom Server.
+
+## Scenario context
+
+This path uses a prepared Stockroom Server host that needs to communicate with a separate inventory database or import host.
+
+Each task states the relevant hostname, address, or expected connection.
+
+The student inspects the host's network configuration and diagnoses connectivity in a consistent order.
 
 ## Goal
 
@@ -1043,7 +1769,7 @@ Teach the student to inspect a host's network identity and diagnose connectivity
 - Reading IPv4 and IPv6 addresses.
 - Distinguishing loopback from external interfaces.
 - Bringing an isolated interface up or down.
-- Changing an interface MTU in a safe scene.
+- Changing an interface MTU in a safe scenario.
 - Recognizing address scope.
 - Identifying the likely outbound interface.
 
@@ -1087,9 +1813,48 @@ Teach the student to inspect a host's network identity and diagnose connectivity
 - `ping`
 - `tracepath` or `traceroute`
 
+## Rep design
+
+Use small topologies and clear objectives:
+
+- Identify the interface used for outbound traffic.
+- Find the host's IPv4 and IPv6 addresses.
+- Determine which route reaches a stated destination.
+- Inspect a failed neighbor entry.
+- Resolve a stated hostname through the system resolver.
+- Compare system resolution with a direct DNS query.
+- Add a temporary `/etc/hosts` override.
+- Determine whether a failure is caused by DNS or routing.
+- Verify that a host is reachable even when ping is blocked.
+- Test whether the expected TCP port is reachable.
+
+Every task must state the expected destination or service independently.
+
 ---
 
 # 17. Work with Sockets and Network Services
+
+## Prerequisites
+
+- Inspect Network Configuration and Connectivity.
+
+## Assumed knowledge
+
+The student:
+
+- Understands interfaces, addresses, routes, hostname resolution, and basic connectivity checks.
+- Can operate a systemd service.
+- Understands that services listen on network addresses and ports at an introductory level.
+- Has not yet used HTTP clients, manual TCP connections, socket inspection, or packet capture.
+- Does not need prior familiarity with Stockroom Server.
+
+## Scenario context
+
+This path uses a prepared Stockroom Server instance.
+
+The service exposes a small HTTP API. Each task states the endpoint, expected response, listener address, or traffic pattern being investigated.
+
+The student connects to the service, inspects its sockets, and captures selected traffic.
 
 ## Goal
 
@@ -1152,13 +1917,54 @@ Connect application-level network operations to processes, sockets, addresses, a
 - `lsof`
 - `tcpdump`
 
+## Rep design
+
+Use Stockroom Server and dedicated disposable network services:
+
+- Request a stated status endpoint.
+- Inspect headers without downloading the response body.
+- Follow a redirect.
+- Send a small JSON request whose format is provided.
+- Diagnose a certificate-name mismatch.
+- Connect to a prepared TCP service manually.
+- Create a temporary listener and send data to it.
+- Find which process owns a stated port.
+- Diagnose a service listening only on loopback.
+- Compare IPv4 and IPv6 listeners.
+- Capture one HTTP request.
+- Filter a packet capture by host and port.
+
+Every task must provide the relevant endpoint, request format, or expected listener state.
+
 ---
 
 # 18. Route, Filter, and Isolate Network Traffic
 
+## Prerequisites
+
+- Work with Sockets and Network Services.
+
+## Assumed knowledge
+
+The student:
+
+- Understands interfaces, addresses, routes, sockets, and ports.
+- Can generate and inspect network traffic.
+- Can use `sudo`.
+- Has not yet configured packet forwarding, nftables, NAT, network namespaces, or virtual Ethernet links.
+- Does not need prior familiarity with Stockroom Server.
+
+## Scenario context
+
+This path uses isolated networks containing a prepared HTTP service such as Stockroom Server.
+
+Each task describes the topology, addresses, ports, and expected connectivity. The application itself is not part of the problem.
+
+All routing, firewall, NAT, and namespace changes occur in isolated topologies that cannot interrupt Shell Gym connectivity.
+
 ## Goal
 
-Introduce host routing, firewalling, NAT, and Linux virtual networking through small isolated scenes.
+Introduce host routing, firewalling, NAT, and Linux virtual networking through small isolated scenarios.
 
 ## Topics
 
@@ -1224,9 +2030,51 @@ Supporting tools:
 
 This path may contain fewer than 15 reps if each topology-building rep is substantial. Alternatively, it can be divided into a routing/firewall path and a namespaces/virtual-networking path.
 
+## Rep design
+
+Use contained network topologies:
+
+- Add a route between two prepared subnets.
+- Remove an incorrect route.
+- Enable forwarding for a namespace router.
+- Add an allow rule for one stated service port.
+- Add and verify a drop rule for another port.
+- Inspect rule counters after generating traffic.
+- Configure masquerading for a private namespace.
+- Redirect one local port to another.
+- Create and address a veth pair.
+- Connect two namespaces through a bridge.
+- Repair an interface or route removed from a prepared topology.
+- Delete all temporary network objects cleanly.
+
+The tasks must specify the topology directly and must not rely on application knowledge.
+
 ---
 
 # 19. Inspect Disk Usage, Devices, and Mounts
+
+## Prerequisites
+
+- Operate Services, Logs, and Scheduled Jobs.
+- Recommended: Search Files and Text.
+
+## Assumed knowledge
+
+The student:
+
+- Can navigate, search, and inspect files.
+- Can inspect processes and open files.
+- Understands in ordinary terms that storage devices hold files.
+- Does not yet understand block devices, filesystems, mount points, or inode exhaustion.
+- Does not need prior familiarity with Stockroom Server.
+
+## Scenario context
+
+This path uses prepared application data under `/var/lib/stockroom` and several disposable filesystems.
+
+Each task states which directory, mount, or device is relevant.
+
+The student determines where space is used and how the host's devices and mounted filesystems relate to directories.
 
 ## Goal
 
@@ -1286,9 +2134,47 @@ Supporting commands:
 - `lsof`
 - `umount`
 
+## Rep design
+
+Use dedicated application data and disposable devices:
+
+- Find which filesystem contains a stated data directory.
+- Compare filesystem free space with directory usage.
+- Find the largest subdirectory.
+- Find a large generated file.
+- Identify a deleted file that remains open.
+- Diagnose inode exhaustion caused by many small files.
+- Identify the block device backing a mount.
+- Read its filesystem type and UUID.
+- Mount a prepared filesystem.
+- Diagnose a busy unmount.
+- Inspect a read-only or bind mount.
+- Determine why data appears at more than one mount point.
+
+Every task must identify the relevant path or device directly.
+
 ---
 
 # 20. Manage Filesystems, Partitions, and Logical Storage
+
+## Prerequisites
+
+- Inspect Disk Usage, Devices, and Mounts.
+
+## Assumed knowledge
+
+The student:
+
+- Understands block devices, partitions, filesystems, mount points, and UUIDs at an introductory level.
+- Can mount and unmount prepared filesystems.
+- Can use `sudo`.
+- Has not yet created partitions, filesystems, swap, or LVM structures.
+
+## Scenario context
+
+The host needs additional storage for application data.
+
+The student performs all destructive work on disposable virtual disks and loop devices. Each task identifies the exact device that is safe to modify.
 
 ## Goal
 
@@ -1369,9 +2255,48 @@ Because this path contains several tool families, it may be split during impleme
 1. Filesystems and persistent mounts.
 2. Partitions, swap, and LVM.
 
+## Rep design
+
+Use only explicitly identified disposable devices:
+
+- Create a file-backed disk.
+- Attach it to a loop device.
+- Create and mount an ext4 filesystem.
+- Add a persistent mount by UUID.
+- Detect and repair an invalid `fstab` entry.
+- Create a partition on an attached disposable disk.
+- Create and activate swap.
+- Create a small LVM volume for application data.
+- Extend the logical volume and filesystem.
+- Inspect each storage layer.
+- Remove the temporary storage stack safely.
+
 ---
 
 # 21. Inspect the Linux Host and Kernel Interfaces
+
+## Prerequisites
+
+- Inspect Disk Usage, Devices, and Mounts.
+- Work with Processes and Jobs.
+- Operate Services, Logs, and Scheduled Jobs.
+
+## Assumed knowledge
+
+The student:
+
+- Can inspect processes, files, devices, mounts, services, and logs.
+- Understands that the Linux kernel manages processes, memory, devices, and filesystems.
+- Has used `/proc/<pid>/fd` but has not systematically studied `/proc`, `/sys`, `/dev`, sysctls, or modules.
+- Does not need prior familiarity with Stockroom Server.
+
+## Scenario context
+
+This path uses prepared processes, devices, and a Stockroom Server instance where useful.
+
+Each task identifies the relevant PID, interface, block device, or kernel setting. No application behaviour needs to be inferred.
+
+The student needs more detailed host information than ordinary commands provide.
 
 ## Goal
 
@@ -1443,9 +2368,47 @@ Teach the student where Linux exposes host, process, device, and kernel state.
 
 Most inspection should also directly use `/proc`, `/sys`, and `/dev`.
 
+## Rep design
+
+Use direct host-inspection tasks:
+
+- Find the current kernel version and architecture.
+- Determine the host's boot time.
+- Read the environment of a specified process.
+- Find its current directory and executable.
+- Compare its open descriptors through `/proc` and `lsof`.
+- Read CPU and memory information directly from procfs.
+- Find the sysfs entry for a network interface.
+- Connect a block device in `/dev` with its sysfs entry.
+- Read and temporarily change a safe sysctl.
+- Inspect a loaded module.
+- Distinguish a loaded module from built-in kernel functionality.
+
 ---
 
 # 22. Work with Isolation and Resource Controls
+
+## Prerequisites
+
+- Inspect the Linux Host and Kernel Interfaces.
+- Use Advanced Linux Access Controls.
+
+## Assumed knowledge
+
+The student:
+
+- Understands processes, `/proc`, capabilities, services, and basic kernel interfaces.
+- Understands that one host can run several processes under different users.
+- Has not yet used namespaces, cgroup v2 controls, or seccomp directly.
+- Does not need prior familiarity with Stockroom Server.
+
+## Scenario context
+
+This path uses several prepared worker processes.
+
+Some may be described as Stockroom Server workers, but each task states what the process does and which isolation or resource property matters.
+
+The student inspects and changes their isolation and resource-control settings.
 
 ## Goal
 
@@ -1506,9 +2469,49 @@ Supporting tools:
 - `prlimit`
 - `/proc`
 
+## Rep design
+
+Use isolated disposable processes:
+
+- Compare the namespaces of two specified processes.
+- Run a shell with a different hostname namespace.
+- Observe different PID values inside and outside a PID namespace.
+- Enter a prepared network namespace.
+- Find the cgroup of a stated service.
+- Create a child cgroup for a test process.
+- Apply and observe a memory limit.
+- Apply and observe a CPU limit.
+- Compare process capabilities.
+- Inspect seccomp state in `/proc`.
+- Trigger a prepared capability or seccomp failure.
+- Clean up the experimental process and cgroup.
+
 ---
 
 # 23. Observe Performance and Triage a Host
+
+## Prerequisites
+
+- Inspect the Linux Host and Kernel Interfaces.
+- Recommended: Work with Isolation and Resource Controls.
+- Recommended: Inspect Disk Usage, Devices, and Mounts.
+
+## Assumed knowledge
+
+The student:
+
+- Can inspect processes, services, logs, `/proc`, cgroups, disks, and mounts.
+- Understands CPU, memory, storage, and processes in ordinary technical terms.
+- Has not yet learned a structured Linux performance-investigation workflow.
+- Does not need prior familiarity with Stockroom Server.
+
+## Scenario context
+
+This path uses prepared processes that create controlled CPU, memory, and storage pressure.
+
+A process may be described as a Stockroom worker, but each task states what it is expected to do and which symptom must be investigated.
+
+The student collects evidence about CPU, memory, storage, processes, and system calls.
 
 ## Goal
 
@@ -1574,7 +2577,7 @@ Teach a repeatable first-pass workflow for investigating CPU, memory, disk, proc
 - Slab and page-cache inspection.
 - Introductory eBPF-based observation tools where available.
 
-### Final triage circuit
+### Final triage workflow
 
 The student should repeatedly answer questions such as:
 
@@ -1604,9 +2607,51 @@ Supporting tools:
 - `/proc`
 - PSI files
 
+## Rep design
+
+Use controlled performance conditions:
+
+- Identify a CPU-heavy process.
+- Distinguish high load caused by CPU work from blocked tasks.
+- Find a process consuming excessive memory.
+- Identify swap activity.
+- Find an OOM kill in the journal.
+- Inspect memory pressure through PSI.
+- Identify a busy block device.
+- Connect storage activity to a process.
+- Trace a failed file operation.
+- Trace a failed network connection.
+- Determine whether pressure is host-wide or limited to one cgroup.
+
+Every task must explain the expected process role and symptom directly.
+
 ---
 
 # 24. Operate Remote Systems with SSH
+
+## Prerequisites
+
+- Inspect Network Configuration and Connectivity.
+- Work with Users, Groups, and Permissions.
+- Control the Shell Environment.
+
+## Assumed knowledge
+
+The student:
+
+- Can operate a local Linux shell.
+- Understands users, permissions, hostnames, addresses, ports, and basic network connectivity.
+- Can manipulate files and inspect command exit status.
+- Has not yet used SSH keys, host verification, remote commands, file transfer, bastions, or tunnels.
+- Does not need prior familiarity with Stockroom Server.
+
+## Scenario context
+
+This path uses several prepared Linux hosts.
+
+One host may run Stockroom Server, but every task states the remote hostname, user, relevant path, command, or service endpoint.
+
+The student connects securely, runs commands, transfers files, and reaches internal services through an SSH bastion.
 
 ## Goal
 
@@ -1698,9 +2743,53 @@ Supporting tools:
 - `ssh-keyscan`
 - `ssh-keygen -R`
 
+## Rep design
+
+Use a small remote environment:
+
+- Connect to a specified host.
+- Run one remote status command.
+- Preserve the intended local or remote variable expansion.
+- Inspect and verify the host key.
+- Repair one changed `known_hosts` entry.
+- Generate and install a key.
+- Configure a host alias.
+- Copy a configuration file.
+- Synchronize a report directory with a dry run first.
+- Connect through a bastion.
+- Forward a local port to a stated remote service.
+- Expose a prepared local service through remote forwarding.
+- Create and stop a SOCKS proxy.
+
+Every task must be self-contained with respect to the remote application or service.
+
 ---
 
 # 25. Write Small Shell Scripts
+
+## Prerequisites
+
+- Operate Remote Systems with SSH.
+- Control the Shell Environment.
+- Search Files and Text.
+- Transform Text and Records.
+
+## Assumed knowledge
+
+The student:
+
+- Can compose shell commands, pipelines, conditions with `&&` and `||`, variables, and quoted expansions.
+- Can operate on files and remote hosts.
+- Has not yet written complete shell scripts with arguments, tests, loops, or functions.
+- Does not need prior familiarity with Stockroom Server.
+
+## Scenario context
+
+This path uses small maintenance tasks involving files, prepared services, and remote hosts.
+
+Some scripts may process Stockroom inventory files or query Stockroom Server, but each task defines the input, output, command, and data format required.
+
+The student places repeated command sequences into reusable scripts.
 
 ## Goal
 
@@ -1749,9 +2838,49 @@ Teach enough shell scripting to automate small operational tasks without turning
 
 Commands introduced earlier should be reused inside scripts.
 
+## Rep design
+
+Use small maintenance scripts:
+
+- Print a status summary from stated input files.
+- Accept a report filename as an argument.
+- Verify that an input file exists.
+- Return a non-zero status for invalid input.
+- Process every filename in `"$@"`.
+- Filter records using commands learned earlier.
+- Copy selected files to an archive.
+- Print diagnostics to stderr.
+- Define a function that validates a directory.
+- Run one stated command remotely for each prepared host.
+- Create one complete script that remains short and directly testable.
+
+Any application command or data format must be explained inside the task.
+
 ---
 
 # 26. Build Safer Command-Line Automation
+
+## Prerequisites
+
+- Write Small Shell Scripts.
+
+## Assumed knowledge
+
+The student:
+
+- Can write and run small shell scripts.
+- Understands arguments, conditions, loops, functions, exit statuses, quoting, pipelines, and stderr.
+- Can work with local and remote files.
+- Has not yet systematically used temporary directories, traps, stricter shell modes, null delimiters, or structured-data tools.
+- Does not need prior familiarity with Stockroom Server.
+
+## Scenario context
+
+This path uses prepared maintenance scripts that modify files or consume JSON and YAML data.
+
+Some data may come from a Stockroom Server endpoint, but every task states the endpoint, fields, and expected output.
+
+The student makes the scripts safer, repeatable, and suitable for structured input.
 
 ## Goal
 
@@ -1810,15 +2939,63 @@ Teach defensive practices for temporary files, cleanup, pipelines, structured da
 
 This path should prefer short, operational scripts rather than large programs.
 
+## Rep design
+
+Use realistic automation requirements:
+
+- Create a unique temporary directory.
+- Remove it after success.
+- Remove it after failure or interruption.
+- Preserve the script's original exit status.
+- Detect an unset required variable.
+- Detect a failed pipeline stage.
+- Process filenames safely with null delimiters.
+- Add a dry-run mode.
+- Make a directory-creation operation idempotent.
+- Extract a stated endpoint from JSON.
+- Filter a JSON array of hosts or assets.
+- Update a prepared YAML value with `yq`.
+- Combine `curl` and `jq` without parsing human-formatted output.
+
+Every structured-data task must identify the relevant fields and expected result.
+
 ---
 
 # 27. Troubleshoot Commands, Permissions, Services, and Networking
+
+## Prerequisites
+
+- Operate Services, Logs, and Scheduled Jobs.
+- Work with Sockets and Network Services.
+- Operate Remote Systems with SSH.
+- Recommended: Build Safer Command-Line Automation.
+
+## Assumed knowledge
+
+The student:
+
+- Can inspect commands, files, permissions, processes, services, logs, network configuration, sockets, and SSH connections.
+- Is expected to choose among commands introduced in earlier paths.
+- Is not expected to use unfamiliar debugging tools or perform long investigations.
+- Does not need prior familiarity with Stockroom Server.
+
+## Scenario context
+
+This path uses short incidents involving a prepared service such as Stockroom Server.
+
+Every task explains:
+
+- What the service or command is expected to do.
+- Which file, port, user, hostname, or endpoint matters.
+- What symptom is currently visible.
+
+The student does not need knowledge from earlier Stockroom tasks.
 
 ## Goal
 
 Reuse earlier skills in short incident-style drills without introducing much new syntax.
 
-These exercises should require diagnosis, but remain faster and more guided than the platform's larger challenge format.
+These exercises should require diagnosis but remain faster and more guided than the platform's larger challenge format.
 
 ## Scenarios and topics
 
@@ -1883,19 +3060,48 @@ These exercises should require diagnosis, but remain faster and more guided than
 
 ## Rep design
 
-Each rep should provide enough context to keep the task fast, but not directly prescribe the command sequence.
+Each rep should provide enough context to keep the task fast but not directly prescribe the command sequence.
 
 For example:
 
-> The application should be reachable on port 8080 from the client host, but the connection fails. Restore access.
+> The `stockroom.service` unit should serve HTTP on port 8080. A client on the same host cannot connect. Restore access.
 
 This is better than:
 
 > Run `ss`, then change the bind address, then restart the service.
 
+A task using Stockroom Server must explain the expected listener, endpoint, file, or user directly.
+
+Tasks should not require the learner to recall earlier fictional application behaviour.
+
 ---
 
 # 28. Troubleshoot Storage, Resources, and Host State
+
+## Prerequisites
+
+- Inspect Disk Usage, Devices, and Mounts.
+- Manage Filesystems, Partitions, and Logical Storage.
+- Inspect the Linux Host and Kernel Interfaces.
+- Observe Performance and Triage a Host.
+- Recommended: Work with Isolation and Resource Controls.
+
+## Assumed knowledge
+
+The student:
+
+- Can inspect filesystems, devices, mounts, processes, services, logs, kernel state, cgroups, CPU, memory, and disk activity.
+- Is expected to apply workflows from earlier paths.
+- Is not expected to investigate large distributed systems or unfamiliar applications.
+- Does not need prior familiarity with Stockroom Server.
+
+## Scenario context
+
+This path uses short host incidents involving a prepared application service.
+
+Every task states the expected service behaviour, relevant data path, process role, and visible symptom.
+
+The application provides a realistic workload but should not add diagnostic complexity.
 
 ## Goal
 
@@ -1967,9 +3173,9 @@ Build a compact and repeatable Linux host-troubleshooting workflow.
 - Core dump after an application crash.
 - Kernel or OOM messages explaining an incident.
 
-### Final host-triage circuit
+### Final host-triage workflow
 
-The student should learn to move through a compact workflow:
+The student should learn to use this sequence:
 
 1. Establish the scope of the failure.
 2. Check recent logs.
@@ -1981,6 +3187,18 @@ The student should learn to move through a compact workflow:
 8. Check sockets and network state.
 9. Inspect kernel evidence.
 10. Apply a small fix and verify the result.
+
+## Rep design
+
+Use one or a few consistent host layouts where practical:
+
+- Keep common service names, paths, users, groups, ports, and storage locations consistent.
+- Explain all relevant application details in each task.
+- Change the Linux failure being diagnosed rather than making the application itself difficult to understand.
+- Provide enough context to keep the investigation within a few commands.
+- Avoid hidden causes that require reading large amounts of unfamiliar configuration.
+- Require verification after every repair.
+- Prefer faults that correspond directly to the mechanisms taught in earlier paths.
 
 ---
 
@@ -2001,7 +3219,7 @@ Paths:
 5. Copy, Move, Remove, and Link Files
 6. Read and Inspect File Contents
 
-This is enough to provide a meaningful beginner experience.
+This is enough to provide a meaningful beginner experience based on ordinary file and system operations that apply to both workstation and server environments.
 
 ### Release 2: Command-line composition
 
@@ -2012,6 +3230,10 @@ Paths:
 9. Transform Text and Records
 10. Control the Shell Environment
 11. Work with Processes and Jobs
+
+Paths 7–10 may use the simple Stockroom command-line tool.
+
+Path 11 introduces Stockroom Server independently. The learner must not need knowledge of the earlier command-line tool.
 
 At this point, students can perform meaningful command-line work rather than execute isolated commands.
 
@@ -2027,6 +3249,8 @@ Paths:
 17. Work with Sockets and Network Services
 
 This is the first strong DevOps- and SRE-oriented milestone.
+
+Stockroom Server may provide a consistent application context, but each path and task must reintroduce the relevant application behaviour.
 
 ### Release 4: Host operator branches
 
@@ -2118,9 +3342,235 @@ The commands remain important, but they should appear as tools for accomplishing
 
 ---
 
-## 3. Repeat the same skill through varied situations
+## 3. Use standard technical language
 
-A single successful rep does not build muscle memory.
+Task descriptions, hints, path introductions, and supporting text should use direct technical language.
+
+Do not use metaphors, analogies, fictional physical spaces, or other figures of speech to explain Linux operations.
+
+Prefer:
+
+- Jump to the directory containing the data files.
+- Find the configuration file.
+- Inspect the process.
+- Stop the service.
+- Follow the log.
+- Pipe the command's output into another command.
+- The directory is not accessible because execute permission is missing.
+
+Avoid:
+
+- Enter the room containing the files.
+- Explore a maze of directories.
+- Follow breadcrumbs to the file.
+- Fight the process.
+- The service is asleep.
+- The pipeline is a conveyor belt.
+- Permissions are keys to locked rooms.
+
+Widely accepted technical slang is acceptable when it makes the writing less formal and remains unambiguous. Examples include:
+
+- Jump to a directory.
+- Kill a process.
+- Tail a log.
+- Pipe output into another command.
+- The host is swapping.
+- The port is already taken.
+- The process is stuck.
+
+---
+
+## 4. Use tasks applicable to workstation and server environments
+
+Early tasks should not focus on consumer-oriented personal-computer activities such as:
+
+- Organizing a photo collection.
+- Browsing a downloads folder.
+- Managing music or video files.
+- Cleaning up desktop shortcuts.
+
+Prefer tasks that make sense in both workstation and server contexts:
+
+- Working with files under the home directory.
+- Creating a work directory.
+- Backing up a file.
+- Moving generated output.
+- Cleaning up temporary files.
+- Inspecting `/tmp`.
+- Reading a configuration fragment.
+- Comparing a file with its backup.
+- Inspecting common directories such as `/etc`, `/var`, and `/opt` at an appropriate level.
+- Creating and organizing data, reports, configuration, or archive directories.
+
+Later tasks should reflect realistic technical work:
+
+- Filtering application output.
+- Finding a value in a configuration file.
+- Repairing permissions.
+- Restarting a service.
+- Finding which process owns a port.
+- Checking disk usage.
+- Connecting to a remote host.
+- Diagnosing resource pressure.
+
+---
+
+## 5. Match task context to curriculum depth
+
+The terminology used in a task must be appropriate for the path's position in the curriculum.
+
+Early paths must not assume familiarity with:
+
+- Git.
+- Repositories.
+- Checking out code.
+- Source trees.
+- Builds.
+- Deployments.
+- Services.
+- Containers.
+- Packages.
+- Production systems.
+- Incident response.
+
+For example, a basic navigation task should say:
+
+> Find the directory containing the prepared backup and jump to it.
+
+It should not say:
+
+> A repository has been checked out under `/srv`; jump to its source directory.
+
+Technical terminology may be introduced after the curriculum has taught the required concepts.
+
+When introducing a new term:
+
+- Explain it briefly.
+- Use it consistently.
+- Do not require additional unlisted knowledge to understand the task.
+- Add it to the path's assumed knowledge only after an earlier module has introduced it.
+
+---
+
+## 6. Maintain scenario continuity without creating application prerequisites
+
+Paths should form a small number of connected sequences.
+
+Use the curriculum-wide progression:
+
+1. Basic Linux file and shell operations.
+2. Command-line processing with a simple inventory tool.
+3. Operating a standalone inventory service.
+4. Administering the Linux host.
+5. Operating remote hosts.
+6. Automating and troubleshooting Linux operations.
+
+Continuity should reduce unnecessary context, not create a prerequisite to understand a fictional application.
+
+A path using Stockroom or Stockroom Server must reintroduce it briefly.
+
+A task using Stockroom or Stockroom Server must be understandable without:
+
+- Completing an earlier Stockroom task.
+- Remembering an earlier Stockroom command.
+- Knowing an earlier file format.
+- Knowing an earlier endpoint.
+- Remembering fictional business context.
+
+The task should contain only enough background to explain:
+
+- What the application component does.
+- Which command, file, process, endpoint, or service matters.
+- What state is expected.
+- What result the student must produce.
+
+Do not require the student to remember character names, company history, business goals, or unrelated plot details.
+
+---
+
+## 7. Keep application-specific complexity low
+
+The complexity of a rep should come from the Linux capability being trained.
+
+The application used in the task should be simple enough that the student does not need to investigate it.
+
+For example, a task about redirection may say:
+
+> `stockroom list` prints one inventory record per line. Save its output to `${REPORT}`.
+
+A task about HTTP may say:
+
+> Stockroom Server listens on port `${PORT}` and returns its status at `/health`. Request that endpoint.
+
+A task about permissions may say:
+
+> The `stockroom` user must read `${DATA_FILE}`. Change the file's ownership or permissions so that this succeeds.
+
+Avoid tasks that require the student to:
+
+- Discover undocumented application commands.
+- Infer an unknown file format.
+- Understand application-specific configuration syntax that has not been provided.
+- Reverse engineer an unfamiliar API.
+- Diagnose application logic before applying the Linux operation.
+
+---
+
+## 8. Allow learners to enter the curriculum at later paths
+
+Some learners will skip early paths and start from Path 10, 11, or later.
+
+Each path must therefore be understandable when opened directly from the catalog, subject only to its explicitly listed Linux prerequisites.
+
+When a path introduces a new application or a new application mode:
+
+- Describe it independently.
+- Do not assume familiarity with an earlier mode.
+- State the relevant paths, commands, files, endpoints, and users.
+- Explain the expected state.
+
+Stockroom Server may be an extension of the Stockroom command-line tool, but Path 11 and later paths must not require knowledge of the command-line tool.
+
+The same principle applies to optional branches. A storage path must not assume that the learner remembers a networking-path scenario, and a networking path must not depend on a storage-path application setup unless declared explicitly.
+
+---
+
+## 9. Avoid unnecessary Shell Gym naming
+
+The Shell Gym daemon runs on a fresh, disposable Linux machine whose purpose is to host the learning environment and allow the learner to modify or break it safely.
+
+Ordinary example resources should use ordinary names.
+
+Prefer:
+
+- `/opt/stockroom`
+- `/etc/stockroom`
+- `/var/lib/stockroom`
+- `/var/log/stockroom`
+- `stockroom.service`
+- `stockroom-worker`
+- `operator`
+- `reports`
+- `archive`
+- `imports`
+
+Avoid:
+
+- `/opt/gymtrack/stockroom`
+- `/tmp/gym-project`
+- `gym-user`
+- `gym-service`
+- `shellgym-app`
+- `gymnet`
+- `gymdisk`
+
+Use `Shell Gym`, `shellgym`, `$GYM_USER`, and related names only when referring to the actual product, daemon, authoring interface, or runtime variable.
+
+---
+
+## 10. Repeat the same skill through varied situations
+
+A single successful rep does not establish reliable command recall.
 
 At the same time, repetition should not feel like the exact same exercise with a different filename.
 
@@ -2132,21 +3582,21 @@ Weak repetition:
 
 Stronger repetition:
 
-- Find a request ID in an application log.
-- Exclude health-check requests.
-- Show context around a crash.
-- Search several rotated files.
+- Find an asset ID in an inventory file.
+- Exclude retired records.
+- Show context around a malformed entry.
+- Search several archived files.
 - Search case-insensitively.
-- Count matching failures.
+- Count matching records.
 - Find which configuration file contains a value.
-- Feed matching records into another command.
+- Pipe matching records into another command.
 - Save the result without losing diagnostics.
 
 The underlying skill repeats, but its application changes.
 
 ---
 
-## 4. Introduce few commands and revisit many
+## 11. Introduce few commands and revisit many
 
 Each path should normally introduce no more than 3–5 commands.
 
@@ -2156,13 +3606,13 @@ A path introducing `find` should naturally reuse:
 
 - `cd`
 - `ls`
-- quoting
-- globs
+- Quoting
+- Globs
 - `grep`
 - `rm`
-- redirects
+- Redirects
 
-Later paths should keep earlier skills alive without announcing a formal review session.
+Later paths should continue requiring earlier skills without announcing a separate review section.
 
 For example:
 
@@ -2173,7 +3623,7 @@ For example:
 
 ---
 
-## 5. Use 15–30 reps as a default, not an absolute rule
+## 12. Use 15–30 reps as a default, not an absolute rule
 
 A normal path should contain 15–30 reps.
 
@@ -2181,7 +3631,7 @@ Use more reps when:
 
 - Each action takes only a few seconds.
 - The skill requires substantial repetition.
-- The scene can vary naturally.
+- The scenario can vary naturally.
 - The student benefits from building speed and confidence.
 
 Examples:
@@ -2209,11 +3659,11 @@ Examples:
 
 ---
 
-## 6. Keep most reps under one minute
+## 13. Keep most reps under one minute
 
 Most individual reps should be solvable in less than a minute once the student understands the operation.
 
-Longer thinking belongs in the platform's challenge format.
+Longer investigation belongs in the platform's challenge format.
 
 A Shell Gym rep may require choosing among a few commands, but it should not normally require:
 
@@ -2224,15 +3674,18 @@ A Shell Gym rep may require choosing among a few commands, but it should not nor
 - Writing a large script.
 - Making architectural decisions.
 
-Troubleshooting paths may be somewhat harder, but should still provide constrained, small scenes.
+Troubleshooting paths may be somewhat harder but should still provide constrained, small scenarios.
 
 ---
 
-## 7. Use realistic but tiny scenes
+## 14. Use realistic but small scenarios
 
-Good scenes:
+Good scenarios:
 
-- A miniature project directory.
+- A work directory under the user's home directory.
+- A backup directory.
+- A collection of data files.
+- A configuration file and its backup.
 - Three rotated log files.
 - A broken service.
 - Two processes competing for one port.
@@ -2244,13 +3697,13 @@ Good scenes:
 - A small JSON response.
 - A temporary bastion and internal host.
 
-Avoid enormous simulated production systems.
+Avoid large simulated production systems.
 
-The student should recognize the operational pattern without spending ten minutes reading background material.
+The student should recognize the operational pattern without spending several minutes reading background material.
 
 ---
 
-## 8. Randomize enough to keep repetition honest
+## 15. Randomize enough to keep repetition honest
 
 Use variables to vary:
 
@@ -2276,7 +3729,7 @@ Good:
 
 ```yaml
 DIRNAME:
-  pick: [archive, cache, reports, uploads]
+  pick: [archive, cache, reports, imports]
 ```
 
 Use random tokens where uniqueness is part of the task:
@@ -2286,9 +3739,11 @@ TOKEN:
   shell: "head -c4 /dev/urandom | od -An -tx1 | tr -d ' \n'"
 ```
 
+Randomized values should not weaken scenario continuity. A Stockroom task should still use recognizable Stockroom paths and terminology even when filenames, ports, users, or tokens vary.
+
 ---
 
-## 9. Do not put the exact solution in the task text
+## 16. Do not put the exact solution in the task text
 
 The task should describe the desired result, not paste the command.
 
@@ -2310,9 +3765,17 @@ Hints may identify:
 
 Hints should not simply reveal the complete final command unless the learning experience explicitly supports a last-resort solution reveal outside the ordinary hint flow.
 
+Providing an application command that is not itself being taught is acceptable.
+
+For example, in a redirection task:
+
+> `stockroom list` prints the current inventory. Save its output to `${REPORT}`.
+
+The task may provide `stockroom list` because the learning objective is redirection, not discovering the application command.
+
 ---
 
-## 10. Use helpful tips for interaction that is hard to verify
+## 17. Use helpful tips for interaction that is hard to verify
 
 Not every useful terminal behavior can be observed reliably from outside the shell.
 
@@ -2336,7 +3799,7 @@ The task itself can verify the resulting system state while the tip teaches the 
 
 ---
 
-## 11. Prefer state checks, but use command checks when appropriate
+## 18. Prefer state checks, but use command checks when appropriate
 
 Prefer:
 
@@ -2367,7 +3830,7 @@ Where possible, combine command observation with state verification.
 
 ---
 
-## 12. Guard negative checks with a baseline
+## 19. Guard negative checks with a baseline
 
 A task checking that something disappeared must first establish that it existed.
 
@@ -2377,7 +3840,7 @@ Bad:
 wait_file_gone "$TARGET"
 ```
 
-This may pass immediately before the scene is ready.
+This may pass immediately before the scenario is ready.
 
 Better:
 
@@ -2396,13 +3859,13 @@ The same principle applies to:
 
 ---
 
-## 13. Keep init scripts idempotent
+## 20. Keep init scripts idempotent
 
 Activation may retry init after failure or reset.
 
 Init scripts should:
 
-- Safely recreate the scene.
+- Safely recreate the scenario.
 - Remove stale state from previous attempts.
 - Avoid failing when an object already exists.
 - Use dedicated names.
@@ -2417,7 +3880,7 @@ Init runs as root, so student-owned files must be explicitly assigned to `$GYM_U
 
 ---
 
-## 14. Use dependencies only when state genuinely carries forward
+## 21. Use dependencies only when state genuinely carries forward
 
 Students may attempt units out of order.
 
@@ -2434,11 +3897,17 @@ Use dependencies when the current unit intentionally builds on earlier state, su
 
 Keep dependency chains short, preferably fewer than five units.
 
-For standalone practice, rebuild the scene independently instead of creating unnecessary chains.
+For standalone practice, rebuild the scenario independently instead of creating unnecessary chains.
+
+Curriculum narrative continuity does not itself justify a state dependency.
+
+Two units may both refer to Stockroom while independently recreating the required state.
+
+No unit should depend on a learner remembering an earlier application's command syntax or data format.
 
 ---
 
-## 15. Use task dependencies for meaningful multi-stage reps
+## 22. Use task dependencies for meaningful multi-stage reps
 
 Most units should teach one small action.
 
@@ -2454,7 +3923,7 @@ Do not create long procedural units merely to simulate a challenge. If a unit be
 
 ---
 
-## 16. Distinguish edge and level tasks carefully
+## 23. Distinguish edge and level tasks carefully
 
 Use edge tasks for accomplishments:
 
@@ -2481,34 +3950,36 @@ Remember:
 
 ---
 
-## 17. Use the student's home directory for persistent cross-unit state
+## 24. Use the student's home directory for persistent cross-unit state
 
-Choose scene location according to lifetime.
+Choose scenario location according to lifetime.
 
-Use `/tmp/gym` or another volatile location for:
+Use `/tmp` or another volatile location for:
 
 - Independent units.
 - Disposable files.
 - Short-lived sockets.
 - Temporary processes.
-- Loop-device scenes that are recreated on activation.
+- Loop-device scenarios that are recreated on activation.
 
 Use the student's home directory when:
 
 - A later unit depends on the state.
-- The scene should survive a reboot.
+- The scenario should survive a reboot.
 - The task concerns shell configuration.
 - The task concerns SSH configuration.
 - The task concerns user-owned scripts.
-- The task concerns persistent project files.
+- The task concerns persistent work files.
 
 Use system paths only when the learning objective is specifically about those paths.
 
+Avoid creating a generic `/tmp/gym`, `/opt/gym`, or similarly named hierarchy merely because the task runs inside Shell Gym.
+
 ---
 
-## 18. Make destructive operations safe by construction
+## 25. Make destructive operations safe by construction
 
-The student should practice potentially dangerous commands, but only inside contained scenes.
+The student should practice potentially dangerous commands, but only inside contained scenarios.
 
 Examples:
 
@@ -2522,11 +3993,107 @@ Examples:
 - Package removal should use non-essential packages.
 - Service exercises should use dedicated lab services.
 
-The scene should make the correct operation safe and an overly broad operation detectable where possible.
+The scenario should make the correct operation safe and an overly broad operation detectable where possible.
+
+Because the machine is disposable and dedicated to Shell Gym, realistic system paths and service names may be used when appropriate. Safety should come from controlled setup and verification rather than from adding `gym` to every resource name.
 
 ---
 
-## 19. Acceptance-test every unit through a real shell
+## 26. State prerequisites and assumed knowledge explicitly
+
+Every learning path must define:
+
+- Prerequisites.
+- Assumed knowledge.
+- Scenario context.
+- What the student will learn.
+
+The first module of every implemented learning path must present the same information to the student.
+
+The first module should include:
+
+### Prerequisites
+
+List required earlier paths by name.
+
+Use `None` for the first path or for a genuinely independent extension path.
+
+Distinguish required prerequisites from recommended prerequisites.
+
+### Assumed knowledge
+
+State the concepts, commands, terminology, and general computer knowledge that task descriptions may rely on.
+
+Also make important non-assumptions explicit where useful. For example:
+
+- No prior Linux experience is required.
+- Knowledge of files and directories is assumed.
+- Knowledge of Git is not assumed.
+- The Linux filesystem hierarchy will be introduced in this path.
+- Basic systemd knowledge is assumed from an earlier path.
+- No prior familiarity with Stockroom is required.
+
+### What the student will learn
+
+Provide a short, direct list of operational outcomes.
+
+For example:
+
+- Navigate with absolute and relative paths.
+- Return to the home and previous directories.
+- Work with paths containing spaces.
+- Recognize the purpose of `/`, `/home`, and `/tmp`.
+
+### Scenario context
+
+Explain the continuing scenario in one or two short paragraphs.
+
+The context must:
+
+- Use terminology appropriate for the current curriculum depth.
+- Avoid metaphors and analogies.
+- Avoid unnecessary fictional details.
+- Explain why the operations are useful.
+- Remain understandable when the path is opened directly from the catalog.
+- Reintroduce any fictional application or service used by the path.
+
+Task authors must verify that every term used in a task is either:
+
+- Common knowledge listed in the general assumptions.
+- Introduced earlier in the same path.
+- Included in the path's assumed knowledge.
+- Explained directly in the task.
+
+---
+
+## 27. Make application-based tasks self-contained
+
+Any task that uses Stockroom, Stockroom Server, or another fictional application must include the application information needed for that task.
+
+Depending on the task, this may include:
+
+- The command to run.
+- What the command prints.
+- The input file format.
+- The relevant field separator.
+- The configuration path.
+- The service unit name.
+- The service user.
+- The listening address and port.
+- The HTTP endpoint.
+- The expected response.
+- The process name.
+- The location of data or logs.
+
+Do not require the learner to retrieve these details from an earlier task merely to practise a Linux capability.
+
+Application details may be repeated across tasks when repetition keeps those tasks self-contained.
+
+The task should not include the target Linux solution, but it may include application-specific syntax that is outside the learning objective.
+
+---
+
+## 28. Acceptance-test every unit through a real shell
 
 Every task requires a valid hidden `solve:` block.
 
@@ -2557,13 +4124,17 @@ If the unit has dependencies, solve the dependency chain first or run the whole 
 
 ---
 
-## 20. Keep theory short and operational
+## 29. Keep theory short and operational
 
-Each path may have a concise introduction explaining:
+Each path should have a concise introduction explaining:
 
+- Its prerequisites.
+- The knowledge it assumes.
 - What the student will be able to do.
 - Why the skill matters in Linux operations.
-- The minimum mental model needed to avoid cargo-culting commands.
+- The minimum mental model needed to avoid using commands without understanding their effect.
+- How the path fits into the current curriculum sequence.
+- Any fictional application or service used by the path.
 
 Do not turn Shell Gym units into textbook chapters.
 
@@ -2579,7 +4150,7 @@ Long-form tutorials should explain topics such as:
 - How filesystems and block layers are stacked.
 - How DNS resolution works internally.
 
-Shell Gym should make the associated operations automatic.
+Shell Gym should make the associated operations familiar through repeated execution.
 
 ---
 
@@ -2592,9 +4163,29 @@ Before accepting a learning path, confirm:
 - It contains roughly 15–30 reps, adjusted for rep complexity.
 - It introduces no more than 3–5 new commands.
 - It reuses previously learned commands.
+- Its prerequisites are explicitly listed.
+- Its assumed knowledge is explicitly listed.
+- Its first module presents prerequisites, assumed knowledge, scenario context, and learning outcomes.
+- Every term used in task descriptions is either assumed, previously introduced, or explained.
+- The task context is appropriate for the path's position in the curriculum.
+- Early paths do not assume development or system-administration knowledge.
+- Early tasks apply to both workstation and server environments.
+- Early tasks do not focus on consumer-oriented file-management activities.
+- The Linux single-directory hierarchy is introduced before tasks rely on it.
+- Scenario continuity with nearby paths is maintained where useful.
+- Scenario continuity does not create undeclared state dependencies.
+- Each path reintroduces any fictional application it uses.
+- Each application-based task includes the application details needed to complete it.
+- Application knowledge from earlier paths is not required.
+- A later application mode, such as Stockroom Server, is introduced independently.
+- The difficulty comes from the Linux capability rather than application discovery.
+- Ordinary resources do not receive unnecessary `gym`-based names.
+- Task descriptions use direct, standard technical language.
+- Task descriptions do not use metaphors or unrelated real-world analogies.
+- Tasks represent realistic computer or Linux operations.
 - Most reps complete in less than a minute.
 - Repetition is varied rather than cosmetic.
-- The exact solution is not present in the task statement.
+- The exact Linux solution is not present in the task statement.
 - Helpful terminal interaction tips are included where relevant.
 - Outcomes are verified through state whenever possible.
 - `wait_exec` patterns accept legitimate alternatives.
@@ -2609,4 +4200,4 @@ Before accepting a learning path, confirm:
 - `shellgym validate` passes.
 - `shellgym solve` passes.
 - The final reps combine the new skill with earlier skills.
-- The path feels like terminal practice rather than a quiz, tutorial, or large challenge.
+- The path provides terminal practice rather than a quiz, textbook chapter, or large challenge.

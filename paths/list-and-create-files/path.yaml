@@ -1,7 +1,0 @@
-id: list-and-create-files
-title: List and Create Files
-description: >
-  See what is there and put new things in place: ls in all its everyday
-  forms, touch and mkdir for files and directory trees, hidden files,
-  awkward names, and the shell's glob patterns.
-shellUser: laborant
