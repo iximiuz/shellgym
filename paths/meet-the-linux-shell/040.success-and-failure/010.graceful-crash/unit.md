@@ -20,12 +20,6 @@ Read the complaint carefully - error messages follow a pattern worth
 recognizing: *who* is complaining (`date:`), *what* it didn't like, and
 usually a pointer toward help.
 
-By the way: since anything starting with a dash looks like an option,
-commands accept a lone `--` argument meaning "options end here -
-whatever follows is a plain value, dashes and all". You won't need it
-today, but you'll be glad it exists the day a value of yours starts
-with a `-`.
-
 ::task
 #active
 Waiting for you to feed `date` the nonsense option `--${BOGUS}`...

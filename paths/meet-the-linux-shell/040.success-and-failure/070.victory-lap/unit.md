@@ -41,8 +41,5 @@ Patience rewarded, on the condition of success.
 #active
 Waiting for line two: a doomed `date` rescued by a fallback...
 #completed
-And failure handled gracefully. That's the whole first path: commands,
-arguments, options, quoting, output, errors, exit statuses, and chains.
-The next path teaches you how to get *unstuck*: finding help, reading
-manuals, and taming commands that won't finish. See you there.
+And failure handled gracefully. That's the whole first path!
 ::

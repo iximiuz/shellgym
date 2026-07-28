@@ -23,7 +23,7 @@ name - in **one line**.
 
 ::task
 #active
-Waiting for the one-line roll call: who you are, where you are, on
+Waiting for the one-line roll call: who you are, what machine you are on, on
 which terminal...
 #completed
 Three answers from one Enter press. `;` is the "and then" of the

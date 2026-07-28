@@ -13,7 +13,9 @@ tasks:
   reported:
     needs: [broke_it]
     check: |
-      wait_exec '(^|/)hostname$'
+      REPORT=$(wait_exec --latest '(^|/)(hostname|whoami)$')
+      [[ "$REPORT" == *hostname* ]] && exit 0
+      hint_exit "You reported with whoami - but whoami is the answer for a status of 0, and the failing date left a different number. Reveal it again with: echo \$? right after the failing command, then report accordingly."
     hint: |
       echo "Reveal the number with: echo \$? - since the command failed, it is NOT zero. Act accordingly."
     solve: |
