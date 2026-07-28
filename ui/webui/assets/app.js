@@ -68,6 +68,37 @@ function renderProgress() {
   const { completed, total } = state.path;
   $('#progress-label').textContent = `${completed}/${total}`;
   $('#progress-fill').style.width = total ? `${(completed / total) * 100}%` : '0';
+  renderPosition();
+}
+
+// unitOrdinal returns the 1-based position of scenes[idx] among the path's
+// runnable units, counting the unit itself when scenes[idx] is one.
+function unitOrdinal(idx) {
+  const scenes = state.path.scenes;
+  let n = 0;
+  for (let i = 0; i <= idx && i < scenes.length; i++) {
+    const s = scenes[i];
+    if (s.kind === 'unit' && !s.unsupported) n++;
+  }
+  return n;
+}
+
+// renderPosition places the "you are here" marker on the progress track. The
+// track is measured in runnable units - the same scale as the fill - so the
+// marker sits mid-segment while a unit is on screen and on a segment boundary
+// for module intros and the finale. It tracks the on-screen scene, not solved
+// progress: the two drift apart as soon as the student browses out of order.
+function renderPosition() {
+  const marker = $('#progress-marker');
+  const { scenes, total } = state.path;
+  if (state.idx < 0 || !total) { marker.hidden = true; return; }
+  const cur = state.idx < scenes.length ? scenes[state.idx] : null; // null = finale
+  const onUnit = cur?.kind === 'unit' && !cur.unsupported;
+  const ord = unitOrdinal(state.idx);
+  const pos = cur === null ? total : onUnit ? ord - 0.5 : ord;
+  marker.hidden = false;
+  marker.style.left = `${(pos / total) * 100}%`;
+  marker.title = onUnit ? `You are here: exercise ${ord} of ${total}` : 'You are here';
 }
 
 async function showScene(idx, dir) {
@@ -105,6 +136,7 @@ async function showScene(idx, dir) {
 
   state.idx = idx;
   state.sceneEl = el;
+  renderPosition();
 
   // Only the path's next unit (and units already started) auto-activate on
   // view; other units wait for an explicit start, or are locked by deps.
@@ -121,6 +153,10 @@ async function buildUnitScene(meta) {
   const el = tpl('tpl-unit-scene');
   el.dataset.unit = unit.id;
   $('.kicker-module', el).textContent = moduleTitle(meta.moduleId);
+  if (!meta.unsupported) {
+    const ord = unitOrdinal(state.path.scenes.indexOf(meta));
+    if (ord) $('.kicker-pos', el).textContent = `exercise ${ord} of ${state.path.total}`;
+  }
   $('.scene-title', el).textContent = unit.title;
   // unit.html is server-rendered trusted content (the author's markdown)
   $('.scene-body', el).innerHTML = unit.html;

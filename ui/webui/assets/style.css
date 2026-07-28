@@ -207,12 +207,22 @@ button { font: inherit; color: inherit; }
   flex: 1; height: 6px; border-radius: 3px;
   background: var(--code-bg);
   box-shadow: inset 0 0 0 1px var(--line);
-  overflow: hidden;
+  position: relative; /* no overflow:hidden - the position marker pokes out */
 }
 .progress-fill {
   height: 100%; width: 0; border-radius: 3px;
   background: var(--progress);
   transition: width .5s ease;
+}
+/* "you are here": marks the on-screen scene's position along the path */
+.progress-marker {
+  position: absolute; top: 50%; left: 0;
+  width: 12px; height: 12px; margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: var(--panel);
+  border: 2px solid var(--accent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .25);
+  transition: left .5s ease;
 }
 .progress-label {
   font-family: var(--mono); font-size: 12px; color: var(--muted);
@@ -290,12 +300,15 @@ button { font: inherit; color: inherit; }
   display: flex; align-items: center; gap: 10px;
   font-family: var(--mono); font-size: 11.5px;
   text-transform: uppercase; letter-spacing: .14em;
-  color: var(--accent); margin-bottom: 10px;
+  color: var(--accent); margin-bottom: 16px;
 }
 .scene-kicker::after {
   content: ""; flex: 0 0 auto; width: 42px; height: 1px;
   background: color-mix(in srgb, var(--accent) 45%, transparent);
 }
+/* the position counter sits flush right; flex order pushes it past the
+   divider line (::after), and the auto margin carries it to the far edge */
+.kicker-pos { order: 1; margin-left: auto; color: var(--muted); white-space: nowrap; }
 .scene-title-row { display: flex; align-items: center; gap: 10px; margin: 0 0 18px; }
 .scene h1.scene-title {
   font-size: 27px; line-height: 1.25; letter-spacing: -.015em;
@@ -774,6 +787,7 @@ kbd {
 @media (prefers-reduced-motion: reduce) {
   .scene { transition: none; }
   .progress-fill { transition: none; }
+  .progress-marker { transition: none; }
   .overlay, .overlay-panel, .celebrate,
   .scene.done .unit-complete-banner { animation: none; }
 }
