@@ -1,0 +1,8 @@
+id: meet-the-linux-shell
+title: Meet the Linux Shell
+description: >
+  Your first session in a Linux terminal. Type commands and read their
+  output, pass arguments and options, quote tricky values, tell success
+  from failure, and chain commands together - no prior Linux experience
+  required.
+shellUser: laborant
