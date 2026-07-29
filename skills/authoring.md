@@ -131,6 +131,21 @@ Rules and behaviors:
   comments are skipped. Every task needs one, or the unit cannot be
   acceptance-tested. In student-facing deployments (`serve --live`)
   solve blocks are stripped from the on-disk files.
+  Lines starting with `#!` are **directives** for interactions a plain
+  typed line cannot express - signal keys, pager keystrokes, and
+  commands that hold the foreground (a normal solve line chains a sync
+  marker onto the command and waits for it, so it would block forever
+  behind `sleep 300` or an open pager):
+  - `#!type TEXT` - write TEXT to the pty verbatim, no Enter (shell
+    variables like `$VAR` still expand when the shell runs the line,
+    since unit vars are exported into the solve shell);
+  - `#!keys K K...` - send named keys: `enter`, `tab`, `space`, `esc`,
+    `C-c`/`C-z`/any `C-<letter>`, or a single literal character
+    (`q`, `/`);
+  - `#!wait SECONDS` - pause to let the previous keystrokes take
+    effect (start a process, redraw a pager) before the next line.
+  Example - start a foreground sleep and interrupt it:
+  `#!type sleep 300` / `#!keys enter` / `#!wait 1` / `#!keys C-c`
 
 ## Built-in checks (on PATH inside check/hint scripts)
 
@@ -183,6 +198,11 @@ Rules and behaviors:
   (`touch -d '2 days ago' target`)
 - `wait_proc <regex>` / `wait_proc_gone <regex>` (full-cmdline match,
   all processes on the box)
+- `wait_proc_state <regex> <state-letters>` - a process matching regex
+  is in one of the given `/proc/<pid>/stat` states (`T` = stopped by a
+  job-control signal - the Ctrl-Z check; `SRD` = alive/running - the
+  "resumed" check). Prints the matched state letter on success. Same
+  full-cmdline matching (and self-match caveat) as `wait_proc`
 - `wait_port <port>` / `wait_port_free <port>` (listening TCP, v4+v6)
 - `shell_cwd [shell-pid]` - prints the cwd of the most recently started
   student shell, or of the shell with the given PID (for hint scripts;
@@ -306,9 +326,15 @@ Rules for individual units:
   `$GYM_USER`. Student-owned *processes* need
   `systemd-run --uid=$GYM_USER` and a named sh wrapper script (argv0
   tricks like `exec -a` break on multi-call coreutils distros). Beware
-  `pgrep -f`, `wait_proc`, and `wait_proc_gone` matching the script's
-  own text - anchor patterns on argv text only the target has (bracket
-  trick + an argument: `'my-nam[e] 86400'`).
+  `pgrep -f`, `wait_proc`, `wait_proc_gone`, and `wait_proc_state`
+  matching the script's own text - anchor patterns on argv text only
+  the target has (bracket trick + an argument: `'my-nam[e] 86400'`).
+  When the target's full cmdline is known, ALSO anchor `^...$`
+  (`"^(/usr/bin/)?slee[p] ${N}s?\$"`): substring patterns match any
+  wrapper (`bash -c "sleep 600 ..."`, `script -qec ...`) whose argv
+  merely *mentions* the command - fatal for `wait_proc_gone` (never
+  gone while the wrapper lives) and `wait_proc_state` (the wrapper's
+  state, not the target's).
 - Prefer distro-neutral commands; label distro-specific units
   (`labels: [ubuntu, debian]`), ideally with a sibling unit per family.
 - Random tokens: `head -cN /dev/urandom | od -An -tx1 | tr -d ' \n'`

@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -120,6 +121,78 @@ func (s *studentShell) TypeSync(line string, timeout time.Duration) error {
 		time.Sleep(100 * time.Millisecond)
 	}
 	return fmt.Errorf("sync timeout after typing %q", line)
+}
+
+// Directive executes a `#!` solve-script control line - the escape hatch for
+// interactions a plain typed-and-synced line cannot express: signal keys
+// (Ctrl-C, Ctrl-Z), pager keystrokes, and commands that hold the foreground
+// so a chained sync marker would never print.
+//
+//	#!type TEXT     write TEXT to the pty verbatim (no Enter, no sync)
+//	#!keys K K...   send named keys: enter, tab, space, esc, C-<letter>
+//	                (or ctrl-<letter>), or any single literal character
+//	#!wait SECONDS  pause to let the previous keystrokes take effect
+func (s *studentShell) Directive(d string) error {
+	verb, rest, _ := strings.Cut(d, " ")
+	rest = strings.TrimSpace(rest)
+	switch verb {
+	case "type":
+		if rest == "" {
+			return fmt.Errorf("nothing to type")
+		}
+		_, err := s.f.WriteString(rest)
+		return err
+	case "keys":
+		if rest == "" {
+			return fmt.Errorf("no keys given")
+		}
+		for _, k := range strings.Fields(rest) {
+			b, err := keyBytes(k)
+			if err != nil {
+				return err
+			}
+			if _, err := s.f.Write(b); err != nil {
+				return err
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+		return nil
+	case "wait":
+		secs, err := strconv.ParseFloat(rest, 64)
+		if err != nil || secs < 0 || secs > 60 {
+			return fmt.Errorf("bad wait duration %q", rest)
+		}
+		time.Sleep(time.Duration(secs * float64(time.Second)))
+		return nil
+	}
+	return fmt.Errorf("unknown directive %q", verb)
+}
+
+func keyBytes(name string) ([]byte, error) {
+	switch strings.ToLower(name) {
+	case "enter", "return":
+		return []byte{'\r'}, nil
+	case "tab":
+		return []byte{'\t'}, nil
+	case "space":
+		return []byte{' '}, nil
+	case "esc":
+		return []byte{0x1b}, nil
+	}
+	lower := strings.ToLower(name)
+	if ctrl, ok := strings.CutPrefix(lower, "c-"); ok || strings.HasPrefix(lower, "ctrl-") {
+		if !ok {
+			ctrl = strings.TrimPrefix(lower, "ctrl-")
+		}
+		if len(ctrl) == 1 && ctrl[0] >= 'a' && ctrl[0] <= 'z' {
+			return []byte{ctrl[0] & 0x1f}, nil
+		}
+		return nil, fmt.Errorf("unknown control key %q", name)
+	}
+	if len([]rune(name)) == 1 {
+		return []byte(name), nil
+	}
+	return nil, fmt.Errorf("unknown key %q", name)
 }
 
 // --- daemon API client ------------------------------------------------------
@@ -270,7 +343,17 @@ func solveUnit(c *apiClient, sh *studentShell, u *content.Unit, timeout time.Dur
 	for i, t := range u.Tasks {
 		for _, line := range strings.Split(t.Solve, "\n") {
 			line = strings.TrimSpace(line)
-			if line == "" || strings.HasPrefix(line, "#") {
+			if line == "" {
+				continue
+			}
+			if d, ok := strings.CutPrefix(line, "#!"); ok {
+				typed = true
+				if err := sh.Directive(strings.TrimSpace(d)); err != nil {
+					return fmt.Errorf("solve directive %q: %w", line, err)
+				}
+				continue
+			}
+			if strings.HasPrefix(line, "#") {
 				continue
 			}
 			typed = true

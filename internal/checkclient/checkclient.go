@@ -29,7 +29,7 @@ var Names = []string{
 	"wait_cwd", "wait_exec", "wait_env",
 	"wait_file", "wait_file_gone", "wait_file_contains",
 	"wait_file_mode", "wait_file_newer", "wait_dir",
-	"wait_proc", "wait_proc_gone",
+	"wait_proc", "wait_proc_gone", "wait_proc_state",
 	"wait_port", "wait_port_free",
 }
 
@@ -283,6 +283,22 @@ func (c *client) run(name string, args []string, deadline time.Time) (bool, erro
 		return c.poll(oneShot, deadline, func() (bool, error) {
 			return !procMatch(re), nil
 		})
+	case "wait_proc_state":
+		if len(args) != 2 {
+			return false, fmt.Errorf("usage: wait_proc_state <regex> <state-letters>")
+		}
+		re, err := regexp.Compile(args[0])
+		if err != nil {
+			return false, err
+		}
+		states := args[1]
+		return c.poll(oneShot, deadline, func() (bool, error) {
+			st, ok := procState(re, states)
+			if ok {
+				fmt.Println(st)
+			}
+			return ok, nil
+		})
 	case "wait_port":
 		return c.portCheck(args, oneShot, deadline, true)
 	case "wait_port_free":
@@ -374,6 +390,49 @@ func procMatch(re *regexp.Regexp) bool {
 		}
 	}
 	return false
+}
+
+// procState scans /proc for a process (other than the caller) whose full
+// cmdline matches re AND whose /proc/<pid>/stat state letter is one of
+// states (e.g. "T" - stopped by a job-control signal, "SR" - sleeping or
+// running). Returns the matched state letter. Patterns share wait_proc's
+// self-match caveat: sibling check helpers carry the pattern text in their
+// own argv, so anchor on text only the target has (bracket trick).
+func procState(re *regexp.Regexp, states string) (string, bool) {
+	entries, err := os.ReadDir("/proc")
+	if err != nil {
+		return "", false
+	}
+	self := os.Getpid()
+	for _, e := range entries {
+		pid, err := strconv.Atoi(e.Name())
+		if err != nil || pid == self {
+			continue
+		}
+		raw, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid))
+		if err != nil || len(raw) == 0 {
+			continue
+		}
+		cmdline := strings.ReplaceAll(strings.TrimRight(string(raw), "\x00"), "\x00", " ")
+		if !re.MatchString(cmdline) {
+			continue
+		}
+		stat, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
+		if err != nil {
+			continue
+		}
+		// The state letter is the first field after the parenthesized comm,
+		// which itself may contain ')' - split at the LAST ')'.
+		idx := bytes.LastIndexByte(stat, ')')
+		if idx < 0 {
+			continue
+		}
+		fields := strings.Fields(string(stat[idx+1:]))
+		if len(fields) > 0 && strings.Contains(states, fields[0]) {
+			return fields[0], true
+		}
+	}
+	return "", false
 }
 
 // portListening reports whether any local TCP socket listens on port
