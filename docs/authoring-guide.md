@@ -205,7 +205,10 @@ Task names are the map keys; the UI shows tasks in dependency-first
   such a task with a lock icon and an "unlocks after" note until its
   dependencies pass.
 - `timeout` - per-attempt seconds, overriding the defaults (30 for
-  edge attempts, 10 for level polls).
+  edge attempts, 10 for level polls). It must exceed any `--timeout`
+  the check waits on: the engine SIGKILLs the whole script when the
+  attempt expires, so a shorter attempt timeout means the script never
+  reaches its `|| hint_exit` fallback.
 
 A unit completes when all edge tasks are completed AND all level tasks
 are simultaneously satisfied. Completion is terminal - checks stop and
@@ -234,6 +237,7 @@ Two mechanisms, freely mixable; both update the task box live:
   immediately and terminates the check with exit code 42:
 
   ```yaml
+  timeout: 70
   check: |
     wait_port --timeout 60 "$PORT" || \
       hint_exit "Nothing is listening on $PORT yet. Is the server running?"

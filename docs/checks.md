@@ -13,7 +13,11 @@ talks to the daemon over its unix socket (see
 - **Blocking**: every `wait_*` check blocks until its condition is met.
   Two flags adjust that:
   - `--timeout <sec>` - give up (exit 1) after this many seconds;
-    fractional values are accepted.
+    fractional values are accepted. Keep it **below the task's
+    per-attempt timeout** (30 s for edge checks, 10 s for level polls,
+    or whatever the task's `timeout:` says): on expiry the engine
+    SIGKILLs the whole script, so a `--timeout` that outlives the
+    attempt means the `|| hint_exit` fallback never runs.
   - `--now` - a single instant evaluation, no waiting. This is the form
     to use in `level` tasks, which are re-polled by the engine anyway.
 - **Polling checks** (`wait_cwd`, `wait_file*`, `wait_dir`,
@@ -233,6 +237,7 @@ setuid/setgid/sticky (`4755`), while a 3-digit octal only matches when
 all special bits are clear (`755` will not accept a setuid `4755`).
 
 ```yaml
+timeout: 60
 check: |
   wait_file_mode --timeout 50 "$GYM_USER_HOME/secret.txt" 600 || \
     hint_exit "secret.txt is still $(stat -c %a "$GYM_USER_HOME/secret.txt" 2>/dev/null) - the target is 600."
@@ -354,9 +359,12 @@ script needs to hint a different task.
 
 The termination matters: the engine injects a shell-function wrapper
 around the binary, so `hint_exit` behaves like `exit` for the calling
-script. The canonical shape is a bounded wait with a fallback message:
+script. The canonical shape is a bounded wait with a fallback message,
+with the task's per-attempt `timeout:` raised above that wait so the
+fallback is actually reached:
 
 ```yaml
+timeout: 70
 check: |
   wait_cwd --timeout 60 "/tmp/gym/$DIRNAME" || \
     hint_exit "Still waiting... check where your shell is with pwd."
