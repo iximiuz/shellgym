@@ -1,0 +1,6 @@
+id: get-unstuck-in-the-shell
+title: "Linux 101: Get Unstuck in the Shell"
+description: >
+  Your second hands-on session in a Linux terminal. Find out what a command name really runs,
+  learn how to get help with --help and man pages, and stop or suspend commands that do not give the prompt back.
+shellUser: laborant
