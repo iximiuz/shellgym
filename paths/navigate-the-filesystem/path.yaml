@@ -1,0 +1,7 @@
+id: navigate-the-filesystem
+title: "Linux 101: Navigate the Filesystem"
+description: >
+  Your third hands-on session in a Linux terminal. Learn how the Linux directory tree is structured,
+  move around it with absolute and relative paths, use the home directory shortcuts, and handle
+  directory names with spaces and other awkward characters.
+shellUser: laborant
