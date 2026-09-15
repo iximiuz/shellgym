@@ -18,7 +18,7 @@ tasks:
       LINE=$(wait_line --latest '^cd( +.*)?$') || exit 1
       case "$LINE" in
         cd) exit 0 ;;
-        *) hint_exit "You are home, but you gave cd an argument. This rep is about the shortest form: cd with nothing after it. Move away and try it." ;;
+        *) hint_exit "You are home, but you gave cd an argument. Move away and come back with cd on its own, with nothing after it." ;;
       esac
     hint: |
       echo "Run cd with nothing after it. No argument means home."

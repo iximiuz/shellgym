@@ -7,7 +7,7 @@ tasks:
     check: |
       LINE=$(wait_line --latest '^[a-z]+ *(;|&&|\|\|) *[a-z]+ *(;|&&|\|\|) *[a-z]+$') || exit 1
       case "$LINE" in
-        *'&&'*|*'||'*) hint_exit "Three commands ran from one line, but this rep is about the semicolon, which runs the next command no matter what happened before." ;;
+        *'&&'*|*'||'*) hint_exit "Three commands ran from one line, but they were joined with && or ||. Join them with the semicolon instead. It runs the next command no matter what happened before." ;;
       esac
       for cmd in whoami hostname tty; do
         case "$LINE" in

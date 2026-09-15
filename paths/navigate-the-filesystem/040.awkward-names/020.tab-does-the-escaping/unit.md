@@ -35,7 +35,7 @@ tasks:
       ARG=$(printf '%s' "$LINE" | sed -E 's/^cd +//')
       case "$ARG" in
         *\\\ *) exit 0 ;;
-        *\"*|*\'*) hint_exit "Quotes work too, and this rep is about the backslash. Go back home, type cd projects/Vend, and press Tab to see the shell write the escaped name for you." ;;
+        *\"*|*\'*) hint_exit "Quotes work too, but here the point is the backslash. Go back home, type cd projects/Vend, and press Tab to see the shell write the escaped name for you." ;;
         *) hint_exit "You got in, but the name was not protected. Go back home and try again with a backslash in front of the space, or let Tab type it." ;;
       esac
     hint: |
