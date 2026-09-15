@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/iximiuz/labs-content/tools/shellgym/internal/checkclient"
 )
 
 // The daemon exposes an internal HTTP API over a unix socket for the
@@ -91,6 +93,7 @@ type ExecWaitRequest struct {
 	Regex      string  `json:"regex"`      // matched against the joined argv
 	Argc       int     `json:"argc"`       // >0: argv must have exactly this many elements
 	Latest     bool    `json:"latest"`     // prefer the newest buffered match over the oldest
+	Cwd        string  `json:"cwd"`        // if set: the command must have run from this directory (path or regex, as wait_cwd)
 	EnvName    string  `json:"envName"`    // if set: match process env instead
 	EnvRegex   string  `json:"envRegex"`   //
 	TimeoutSec float64 `json:"timeoutSec"` // <=0: practically forever
@@ -144,6 +147,15 @@ func (a *checkAPI) handleExecWait(w http.ResponseWriter, r *http.Request) {
 		// single argument from the same text split into several arguments
 		// (both join to the same string) - the count can.
 		if req.Argc > 0 && len(ev.Argv) != req.Argc {
+			return false
+		}
+		// Working-directory scoping: the event horizon is per unit, so a
+		// task gated on "the shell stands in X" would otherwise be
+		// satisfied by a matching command run anywhere before the
+		// student moved. An unknown cwd (the process was gone before the
+		// link could be read) never satisfies the filter - the point of
+		// the filter is proof of location.
+		if req.Cwd != "" && (ev.Cwd == "" || !checkclient.PathMatch(req.Cwd, ev.Cwd)) {
 			return false
 		}
 		if req.EnvName != "" {

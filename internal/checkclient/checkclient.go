@@ -52,12 +52,13 @@ func Main(name string, args []string) int {
 	now := fs.Bool("now", false, "single instant check, no waiting")
 	argc := fs.Int("argc", 0, "wait_exec only: also require exactly this many argv elements")
 	latest := fs.Bool("latest", false, "wait_exec/wait_line only: prefer the newest buffered match over the oldest")
+	cwd := fs.String("cwd", "", "wait_exec/wait_env only: also require the command to have run from this working directory (exact path, or a regex when it contains metacharacters)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 	args = fs.Args()
 
-	c := &client{sock: os.Getenv("GYM_SOCK"), since: sinceExecSeq(), sinceLine: sinceLineSeq(), argc: *argc, latest: *latest}
+	c := &client{sock: os.Getenv("GYM_SOCK"), since: sinceExecSeq(), sinceLine: sinceLineSeq(), argc: *argc, latest: *latest, cwd: *cwd}
 	deadline := time.Now().Add(365 * 24 * time.Hour)
 	if *timeout > 0 {
 		deadline = time.Now().Add(time.Duration(*timeout * float64(time.Second)))
@@ -93,6 +94,7 @@ type client struct {
 	sinceLine uint64 // line event horizon (GYM_SINCE_LINE_SEQ)
 	argc      int
 	latest    bool
+	cwd       string // working-directory filter (--cwd) for exec waits
 }
 
 func (c *client) http() *http.Client {
@@ -170,7 +172,7 @@ func (c *client) run(name string, args []string, deadline time.Time) (bool, erro
 				if onlyPID != 0 && s.PID != onlyPID {
 					continue
 				}
-				if pathMatch(pattern, s.Cwd) {
+				if PathMatch(pattern, s.Cwd) {
 					// Report which shell matched, so checks can capture it
 					// (typically into a task var via set_var).
 					fmt.Println(s.PID)
@@ -181,9 +183,9 @@ func (c *client) run(name string, args []string, deadline time.Time) (bool, erro
 		})
 	case "wait_exec":
 		if len(args) != 1 {
-			return false, fmt.Errorf("usage: wait_exec [--argc N] [--latest] <regex>")
+			return false, fmt.Errorf("usage: wait_exec [--argc N] [--latest] [--cwd <path>] <regex>")
 		}
-		req := execWaitRequest{Regex: args[0], Argc: c.argc, Latest: c.latest}
+		req := execWaitRequest{Regex: args[0], Argc: c.argc, Latest: c.latest, Cwd: c.cwd}
 		return c.execWait(req, oneShot, deadline, true)
 	case "wait_line":
 		if len(args) != 1 {
@@ -192,9 +194,9 @@ func (c *client) run(name string, args []string, deadline time.Time) (bool, erro
 		return c.lineWait(args[0], oneShot, deadline)
 	case "wait_env":
 		if len(args) < 1 || len(args) > 2 {
-			return false, fmt.Errorf("usage: wait_env <NAME> [regex]")
+			return false, fmt.Errorf("usage: wait_env [--cwd <path>] <NAME> [regex]")
 		}
-		req := execWaitRequest{EnvName: args[0], EnvRegex: ".*"}
+		req := execWaitRequest{EnvName: args[0], EnvRegex: ".*", Cwd: c.cwd}
 		if len(args) == 2 {
 			req.EnvRegex = args[1]
 		}
@@ -355,9 +357,12 @@ func parsePID(s string) (int, error) {
 	return pid, nil
 }
 
-// pathMatch: exact path match, or regex when the pattern contains regex
-// metacharacters and compiles.
-func pathMatch(pattern, cwd string) bool {
+// PathMatch reports whether cwd satisfies a path pattern the way wait_cwd
+// interprets one: an exact path match, or a regex (auto-anchored to the
+// whole path) when the pattern contains regex metacharacters and compiles.
+// The daemon applies the same rule to the --cwd filter of exec and line
+// waits.
+func PathMatch(pattern, cwd string) bool {
 	if pattern == cwd {
 		return true
 	}
@@ -582,6 +587,7 @@ type execWaitRequest struct {
 	Regex      string  `json:"regex"`
 	Argc       int     `json:"argc"`
 	Latest     bool    `json:"latest"`
+	Cwd        string  `json:"cwd"`
 	EnvName    string  `json:"envName"`
 	EnvRegex   string  `json:"envRegex"`
 	TimeoutSec float64 `json:"timeoutSec"`

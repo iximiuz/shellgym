@@ -298,6 +298,66 @@ hint: |
   [ "$GYM_CHECK_ATTEMPT" -gt 2 ] && echo "Run ls -lt." || echo "Look for 'time' in ls --help."
 ```
 
+### Event horizons
+
+Event checks (`wait_exec`, `wait_env`, `wait_line`) judge commands from
+a **horizon** onwards: the moment the unit was activated. Everything the
+student runs after that is buffered, and a check that starts later still
+sees it - that is what makes checks robust across their own restarts. A
+rejected attempt moves the horizon of *that task* forward (see above);
+nothing else does.
+
+In particular, a task gated with `needs:` does **not** get a fresh
+horizon when its dependencies complete. Its check starts late, but it
+judges everything buffered since the unit started - including commands
+the student ran while the task was still locked. Two units that look
+fine on paper and are wrong for this reason:
+
+```yaml
+# "Run date, then run hostname."
+tasks:
+  date:
+    check: wait_exec '(^|/)date$'
+  hostname:
+    needs: [date]
+    check: wait_exec '(^|/)hostname$'
+# A student who runs hostname first and date second completes both
+# tasks the instant `date` passes: the earlier hostname is in the buffer.
+```
+
+```yaml
+# "Move to ~/projects/data, then list it in the long format."
+tasks:
+  at_data:
+    check: wait_cwd "$GYM_USER_HOME/projects/data"
+  listed:
+    needs: [at_data]
+    check: wait_exec '(^|/)ls (-[a-zA-Z]+ )*-l'
+# An `ls -l` typed anywhere before the cd completes `listed` the moment
+# `at_data` passes - the listing never happened in ~/projects/data.
+```
+
+The gating alone does not express the order; the gated check has to
+demand something the earlier command cannot supply. The usual ways:
+
+- **verify an effect that only the correct order produces** - a file
+  that must exist (`wait_file`), be newer than something the first step
+  created (`wait_file_newer`), a process, a port;
+- **add a condition to the match** that the stray command fails - where
+  it ran (`wait_exec --cwd`, the fix for the second example), an
+  argument the first step makes available (a name it created, a value
+  it printed), an argv count;
+- **make the steps separate units** joined with the unit-level `needs:`
+  - a unit's activation is a fresh horizon, so this is the right shape
+  when the steps are really two reps;
+- **accept it** when the order truly does not matter to the rep, and
+  say so in the text.
+
+The first example is best split into two units, or given an effect to
+watch. Task-level `needs:` remains the right tool for what it does well:
+locking the second task box until the first is done, and threading
+state (`set_var`) from one task to the next.
+
 The `hint:` block runs between attempts, so it sees the number of the
 attempt the student is now on. After a rejection without `hint_exit` it
 runs right away, rate limit or not - it is the only feedback such a
@@ -423,6 +483,10 @@ heading becomes the module title.
   `requires: [readline]`) for reps where the shape of the line itself is
   the skill - an operator, a pipe, quoting, a builtin. Never require one
   exact command form when several are correct.
+- **Gated tasks inherit the unit's horizon.** A task behind `needs:`
+  judges commands buffered since the unit started, so its check must
+  demand something the earlier steps cannot have produced - see
+  [Event horizons](#event-horizons).
 - **Never put the exact solution in the problem statement.** Hints may
   point, not paste.
 - **Prefer distro-neutral commands**; label distro-specific units.

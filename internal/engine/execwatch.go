@@ -25,6 +25,10 @@ type ExecEvent struct {
 	// check's own argv (which contains the searched pattern) from matching.
 	TTYNr int      `json:"ttyNr"`
 	Argv  []string `json:"argv"`
+	// Cwd is the working directory the command was executed from, read
+	// from /proc/<pid>/cwd right after argv. Empty when the process was
+	// gone before the link could be read (unknown).
+	Cwd string `json:"cwd"`
 	// Env is captured eagerly for tty-attached processes (student
 	// commands are low-rate; fast ones die before a lazy read could
 	// happen). Empty for tty-less processes.
@@ -186,6 +190,9 @@ func harvestProc(pid int) (ExecEvent, bool) {
 		return ExecEvent{}, false
 	}
 	argv := splitNul(string(raw))
+	// The cwd link is read immediately after argv, while the process is
+	// most likely still there; a check's --cwd filter needs it.
+	cwd, _ := os.Readlink(fmt.Sprintf("/proc/%d/cwd", pid))
 	status, err := os.ReadFile(fmt.Sprintf("/proc/%d/status", pid))
 	if err != nil {
 		return ExecEvent{}, false
@@ -213,7 +220,7 @@ func harvestProc(pid int) (ExecEvent, bool) {
 			ppid, _ = strconv.Atoi(strings.TrimSpace(v))
 		}
 	}
-	ev := ExecEvent{PID: pid, PPID: ppid, UID: uid, TTYNr: ttyNr, Argv: argv}
+	ev := ExecEvent{PID: pid, PPID: ppid, UID: uid, TTYNr: ttyNr, Argv: argv, Cwd: cwd}
 	if ttyNr != 0 {
 		// Eager env capture (bounded): fast interactive commands are gone
 		// before wait_env could read /proc lazily.

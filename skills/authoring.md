@@ -26,9 +26,19 @@ A unit is armed by **activation**: init runs and checks start watching
 only then. A student can have several units in progress, but the daemon
 supervises only the most recently activated one - viewing a started
 unit re-activates it and moves the watch there. Note that `wait_exec`
-only counts commands run after the unit's latest activation, while
-state-based checks (`wait_file`, `wait_cwd`, ...) pass on whatever is
-true when they look. The UI auto-activates just the next unit in path
+(and `wait_env`, `wait_line`) only counts commands run after the unit's
+latest activation, while state-based checks (`wait_file`, `wait_cwd`,
+...) pass on whatever is true when they look. That horizon is shared by
+ALL tasks of the unit: a task gated with `needs:` still judges commands
+buffered while it was locked. "Run date, then hostname" as two gated
+`wait_exec` tasks completes both the instant `date` passes for a student
+who ran `hostname` first; "cd to X, then ls -l" is completed by an
+`ls -l` typed anywhere before the cd. Task-level `needs:` orders the
+task boxes, never the commands - a gated check must demand something the
+earlier steps cannot have produced (an effect; a match condition the
+stray command fails, e.g. `--cwd` for location reps or an argument the
+first step created), or the steps become separate units (a unit's
+activation is a fresh horizon). The UI auto-activates just the next unit in path
 order; a student who jumps ahead must start the unit explicitly, and a
 unit whose `needs:` dependencies are not all completed is **locked** -
 it cannot be activated at all until they are.
@@ -189,7 +199,7 @@ Rules and behaviors:
   `TRAVELER=$(wait_cwd "/tmp/gym/$D") || exit 1` then
   `set_var TRAVELER "$TRAVELER"` in one unit, and
   `wait_cwd "$TRAVELER" "$GYM_USER_HOME"` in the unit that `needs:` it
-- `wait_exec [--argc N] [--latest] <regex>` - the student ran a command
+- `wait_exec [--argc N] [--latest] [--cwd <path>] <regex>` - the student ran a command
   matching regex (matched against full argv joined with spaces; only
   tty-attached processes of the observed user, executed after the
   unit's activation, count; matched commands are buffered, so a command
@@ -204,7 +214,12 @@ Rules and behaviors:
   oldest - use it for right/wrong-branch checks
   (`REPORT=$(wait_exec --latest '(^|/)(right|wrong)$')` then `case` +
   `hint_exit` on the wrong branch), so that when several answers are
-  buffered the newest one is judged. IMPORTANT: shells exec only
+  buffered the newest one is judged. `--cwd <path>` also requires the
+  command to have run FROM that directory (exact path, or a regex
+  matched against the whole path when it contains metacharacters - the
+  `wait_cwd` rules; an unreadable cwd never matches) - for reps where
+  the location is the point: a listing from inside a directory, a
+  relative path, a file created "right here". IMPORTANT: shells exec only
   EXTERNAL commands - builtins (`echo`, `printf`, `true`, `false`,
   `pwd`, `type`, `cd`, ...) produce no exec event and are invisible to
   `wait_exec`; anchor such reps on an external command (`whoami`,
@@ -216,16 +231,19 @@ Rules and behaviors:
   whitespace trimmed, otherwise verbatim: operators, quotes, pipes, and
   builtins included). Same scoping and buffering as `wait_exec`; prints
   the matched line so a check can branch on it (`--latest` for
-  right/wrong branching, as above). Keep regexes permissive about
+  right/wrong branching, as above). There is no `--cwd` for lines: when
+  the location matters, pair the line check with a `wait_exec --cwd` on
+  the command the line runs (external commands only - a builtin line
+  such as `echo *` cannot be placed). Keep regexes permissive about
   whitespace (`sleep 2&&hostname` is the same command) and pair with
   `wait_exec` when the command must also have run. OPTIONAL CAPABILITY:
   every unit using it MUST declare `requires: [readline]` - hosts without
   the readline uprobe (no tracefs, non-bash login shell) mark such units
   unsupported instead of running them; without the declaration the check
   fails at once with exit code 2 there. Only bash is observed
-- `wait_env <NAME> [regex]` - a command was observed with the env var
+- `wait_env [--cwd <path>] <NAME> [regex]` - a command was observed with the env var
   set; this is how exports are verified (ask the student to run any
-  command after exporting)
+  command after exporting). `--cwd` as for `wait_exec`
 - `wait_file <path|glob>` / `wait_file_gone <path|glob>`
 - `wait_dir <path|glob>` - like `wait_file`, but only a directory
   satisfies it (use for `mkdir` tasks so a plain file at the path does

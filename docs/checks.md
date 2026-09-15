@@ -105,7 +105,7 @@ check: |
 
 ## Command execution
 
-### `wait_exec [--argc N] [--latest] <regex>`
+### `wait_exec [--argc N] [--latest] [--cwd <path>] <regex>`
 
 Waits until the student runs a command whose **full argv** (joined with
 single spaces) matches the regex. On success it prints the matched
@@ -113,7 +113,10 @@ command's argv (space-joined), so a check can branch on *which* command
 satisfied the pattern. Matching is scoped to student activity:
 
 - only commands executed **after the current unit was activated** count
-  (earlier history never satisfies a fresh unit);
+  (earlier history never satisfies a fresh unit). This horizon is shared
+  by every task of the unit - a task behind `needs:` sees commands run
+  while it was locked; see [Event horizons](authoring-guide.md#event-horizons)
+  for what that means for gated checks;
 - only processes of the observed user with a controlling terminal count;
   the daemon's own scripts can never match (see
   [detection.md](detection.md));
@@ -158,12 +161,34 @@ hint: |
   echo "No report yet - run one of the two commands."
 ```
 
+`--cwd <path>` additionally requires the command to have been executed
+from that working directory (the process's cwd at exec time, as
+`/proc/<pid>/cwd` reports it). The path follows the `wait_cwd` rules: an
+exact absolute path, or a regex matched against the whole path when it
+contains metacharacters. Use it when *where* the command ran is part of
+the rep - a listing made from inside a directory, a relative path that
+only makes sense from one place, a file created "right here". A typed
+line has no such filter (`wait_line` sees the line before anything
+runs); when the location matters too, pair the line check with a
+`wait_exec --cwd` on the command the line executes - which works only
+for external commands, since a builtin such as `echo` leaves no exec
+event:
+
+```yaml
+check: |
+  # `ls -l` run from ~/projects/data; the same command elsewhere does not count
+  wait_exec --cwd "$GYM_USER_HOME/projects/data" '(^|/)ls (-[a-zA-Z]+ )*-l'
+```
+
+A command whose cwd could not be read (the process was gone already)
+never satisfies `--cwd`.
+
 Very short-lived processes are harvested from `/proc` right after the
 exec event; in the rare case the process vanishes before its argv could
 be read, the event is dropped. Commands typed at human speed are
 reliably captured.
 
-### `wait_env <NAME> [regex]`
+### `wait_env [--cwd <path>] <NAME> [regex]`
 
 Waits for an executed command whose **environment** contains variable
 `NAME` (with a value matching `regex`, if given). This is the way to
@@ -176,9 +201,9 @@ check: |
   wait_env GREETING '^hello$'
 ```
 
-The same student-activity scoping as `wait_exec` applies. Environments
-are captured at exec time (bounded at 32 KiB), so even fast commands
-are inspected reliably.
+The same student-activity scoping as `wait_exec` applies, and so does
+`--cwd`. Environments are captured at exec time (bounded at 32 KiB), so
+even fast commands are inspected reliably.
 
 ### `wait_line [--latest] <regex>`
 

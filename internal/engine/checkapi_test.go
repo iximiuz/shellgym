@@ -239,3 +239,37 @@ func TestLineWaitUnavailable(t *testing.T) {
 		}
 	}
 }
+
+// The event horizon is per unit, so a task gated on "the shell stands in
+// X" (needs: [at_x]) would otherwise be satisfied by a matching command the
+// student ran anywhere before moving. The --cwd filter scopes the match to
+// commands executed from the directory; an unknown cwd never satisfies it.
+func TestExecWaitCwdScopesToDirectory(t *testing.T) {
+	w := NewExecWatcher()
+	api := &checkAPI{watcher: w, shellUID: 1000}
+	w.publish(ExecEvent{PID: 1, UID: 1000, TTYNr: 3, Argv: []string{"ls", "-l"}, Cwd: "/home/u"})
+	w.publish(ExecEvent{PID: 2, UID: 1000, TTYNr: 3, Argv: []string{"ls", "-l"}, Cwd: ""})
+
+	re := `(^|/)ls( +\S+)*$`
+	if !execWaitOnce(t, api, ExecWaitRequest{Regex: re, TimeoutSec: 0.05}).Matched {
+		t.Fatal("without --cwd the event should match")
+	}
+	req := ExecWaitRequest{Regex: re, Cwd: "/home/u/projects/data", TimeoutSec: 0.05}
+	if execWaitOnce(t, api, req).Matched {
+		t.Fatal("a command run elsewhere (or with an unknown cwd) matched the --cwd filter")
+	}
+
+	w.publish(ExecEvent{PID: 3, UID: 1000, TTYNr: 3, Argv: []string{"ls", "-l"}, Cwd: "/home/u/projects/data"})
+	out := execWaitOnce(t, api, req)
+	if !out.Matched || out.Event.PID != 3 {
+		t.Fatalf("the command run from the directory should match, got %+v", out.Event)
+	}
+	// The pattern follows wait_cwd's rules: a regex when it contains
+	// metacharacters, anchored to the whole path.
+	if !execWaitOnce(t, api, ExecWaitRequest{Regex: re, Cwd: "/home/u/projects/(data|notes)", TimeoutSec: 0.05}).Matched {
+		t.Fatal("regex --cwd did not match")
+	}
+	if execWaitOnce(t, api, ExecWaitRequest{Regex: re, Cwd: "/home/u/projects", TimeoutSec: 0.05}).Matched {
+		t.Fatal("--cwd must match the whole path, not a prefix")
+	}
+}
