@@ -238,7 +238,7 @@ Task names are the map keys; the UI shows tasks in dependency-first
 
 - **`mode: edge`** (default) - "the student did X". The check runs
   (typically blocking on a `wait_*` built-in) until it first exits 0;
-  then the task is completed forever. Failed attempts are recorded and
+  then the task is completed forever. Failed runs are recorded and
   the check restarts after a short delay.
 - **`mode: level`** - "X is currently true". The check is re-polled
   about once a second (use `--now` on the `wait_*` calls) and may flip
@@ -248,8 +248,8 @@ Task names are the map keys; the UI shows tasks in dependency-first
   tasks may not depend on level tasks (load-time error). The UI shows
   such a task with a lock icon and an "unlocks after" note until its
   dependencies pass.
-- `timeout` - per-attempt seconds, overriding the defaults (30 for
-  edge attempts, 10 for level polls).
+- `timeout` - seconds per check run, overriding the defaults (30 for
+  edge checks, 10 for level polls).
 
 A unit completes when all edge tasks are completed AND all level tasks
 are simultaneously satisfied. Completion is terminal - checks stop and
@@ -264,6 +264,44 @@ check: |
   wait_file --timeout 15 "$GYM_USER_HOME/junk.tmp" || exit 1
   wait_file_gone "$GYM_USER_HOME/junk.tmp"
 ```
+
+### Attempts
+
+A check run that exits non-zero on its own is a **rejected attempt**:
+the student answered, and the check said no. That is a `hint_exit`, or a
+plain `exit 1` on the wrong branch of a `wait_exec --latest` check. A run
+killed by the task timeout is not an attempt - the check never judged
+anything. (An expired `wait_* --timeout N || exit 1` is the check's own
+exit and counts; for an idle nudge, use a plain blocking wait and the
+`hint:` block.)
+
+After a rejected attempt:
+
+- The task's event horizon moves to now. The restarted check sees only
+  commands the student runs from here on, so a wrong answer is judged
+  once and its hint stays until the next try. A check that needs an
+  earlier command to stay visible should be two tasks joined with
+  `needs:`.
+- `GYM_CHECK_ATTEMPT` goes up by one. The task's `check:` and `hint:`
+  scripts see it: 1 on the first run, 2 after one rejection, and so on.
+  Other tasks keep their own count.
+
+Use it to escalate - a nudge on the first tries, a more revealing hint on the next few, and maybe the exact answer after that:
+
+```yaml
+check: |
+  ARGV=$(wait_exec --latest '(^|/)ls( +\S+)*$') || exit 1
+  [[ " $ARGV " =~ ' -[a-zA-Z0-9]*t' ]] && exit 0
+  [ "$GYM_CHECK_ATTEMPT" -gt 2 ] && hint_exit "The option is -t: run ls -lt."
+  hint_exit "That listing is sorted by name. Look for 'time' in ls --help."
+hint: |
+  [ "$GYM_CHECK_ATTEMPT" -gt 2 ] && echo "Run ls -lt." || echo "Look for 'time' in ls --help."
+```
+
+The `hint:` block runs between attempts, so it sees the number of the
+attempt the student is now on. After a rejection without `hint_exit` it
+runs right away, rate limit or not - it is the only feedback such a
+check gives.
 
 ### Hints
 
@@ -283,8 +321,9 @@ Two mechanisms, freely mixable; both update the task box live:
       hint_exit "Nothing is listening on $PORT yet. Is the server running?"
   ```
 
-Hints point at what is wrong or where to look. Never paste the solution
-command.
+Hints point at what is wrong or where to look. Avoid revealing the exact
+solution command. If you absolutely want to do it, save it for a late attempt
+(see [Attempts](#attempts)), never the first hint.
 
 ### Solve scripts
 

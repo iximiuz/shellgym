@@ -28,9 +28,12 @@ talks to the daemon over its unix socket (see
   observed login user), `GYM_USER_HOME`, `GYM_SINCE_EXEC_SEQ` (exec-event
   horizon, see `wait_exec`), `GYM_SINCE_LINE_SEQ` (command-line horizon,
   see `wait_line`), and `GYM_SOCK` (the daemon socket path)
-  into every script. `hint:` scripts additionally get
-  `GYM_TASK_EXIT`, `GYM_TASK_STDOUT`, `GYM_TASK_STDERR` from the last
-  failed check run (streams clipped to 1 KiB).
+  into every script. A task's `check:` and `hint:` scripts also get
+  `GYM_CHECK_ATTEMPT`, the attempt number (see
+  [Attempts](authoring-guide.md#attempts) in the authoring guide).
+  `hint:` scripts additionally get `GYM_TASK_EXIT`, `GYM_TASK_STDOUT`,
+  `GYM_TASK_STDERR` from the last failed check run (streams clipped to
+  1 KiB).
 
 Checks compose freely with shell:
 
@@ -144,10 +147,8 @@ check: |
 
 `--latest` makes the **newest** buffered match win instead of the
 oldest. Use it whenever the check judges the student's most recent
-answer - typically a right/wrong branch over an alternation. Without it,
-the first (wrong) answer since activation would keep matching on every
-restart after a `hint_exit`, and a later correct answer could never be
-seen:
+answer - typically a right/wrong branch over an alternation - so that
+when several commands are buffered, the newest one is judged:
 
 ```yaml
 check: |
@@ -411,10 +412,12 @@ check: |
     hint_exit "Still waiting... check where your shell is with pwd."
 ```
 
-The failed attempt is recorded, the engine restarts the check after a
-short delay, and the hint stays visible in the task box until replaced.
-`hint_exit` only works inside task scripts (it needs `GYM_UNIT`,
-`GYM_TASK`, and the daemon socket).
+The failed run is a rejected attempt (see
+[Attempts](authoring-guide.md#attempts) in the authoring guide): the
+task's horizon moves past what the student did so far, the engine
+restarts the check after a short delay, and the hint stays visible in
+the task box until replaced. `hint_exit` only works inside task scripts
+(it needs `GYM_UNIT`, `GYM_TASK`, and the daemon socket).
 
 ## Choosing the right check
 

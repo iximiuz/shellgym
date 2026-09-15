@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"os/user"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -156,6 +157,23 @@ func (te *testEnv) waitTaskStatus(unit, task, wantStatus string, timeout time.Du
 		case ev := <-te.events:
 			if d, ok := ev.Data.(TaskEvent); ok && ev.Type == "task" &&
 				d.Unit == unit && d.Task == task && d.Status == wantStatus {
+				return true
+			}
+		case <-deadline:
+			return false
+		}
+	}
+}
+
+// waitHint blocks until a hint event with exactly the wanted text arrives
+// for the task (or the timeout passes).
+func (te *testEnv) waitHint(unit, task, want string, timeout time.Duration) bool {
+	te.t.Helper()
+	deadline := time.After(timeout)
+	for {
+		select {
+		case ev := <-te.events:
+			if d, ok := ev.Data.(HintEvent); ok && ev.Type == "hint" && d.Unit == unit && d.Task == task && d.Hint == want {
 				return true
 			}
 		case <-deadline:
@@ -800,6 +818,131 @@ tasks:
 Waiting...
 ::
 `
+
+const attemptUnit = `---
+title: Attempts
+tasks:
+  answer:
+    timeout: 3
+    check: |
+      ARGV=$(wait_exec --latest '(^|/)shellgym-(right|wrong)( |$)') || exit 1
+      case "$ARGV" in
+        *shellgym-right*) exit 0 ;;
+      esac
+      hint_exit "wrong answer, attempt $GYM_CHECK_ATTEMPT"
+    hint: |
+      echo "idle, attempt $GYM_CHECK_ATTEMPT"
+---
+::task{name="answer"}
+w
+::
+`
+
+// A check run that fails on its own - here with hint_exit - ends an
+// attempt: the task's event horizon moves past the judged command (so the
+// restarted check does not judge the same answer again), and the task's
+// later runs see GYM_CHECK_ATTEMPT one higher. A run killed by the task
+// timeout ends no attempt.
+func TestHintExitEndsAttempt(t *testing.T) {
+	testAttempts(t, attemptUnit, "wrong answer, attempt 1", "wrong answer, attempt 2")
+}
+
+const silentAttemptUnit = `---
+title: Silent attempts
+tasks:
+  answer:
+    timeout: 3
+    check: |
+      ARGV=$(wait_exec --latest '(^|/)shellgym-(right|wrong)( |$)') || exit 1
+      case "$ARGV" in
+        *shellgym-right*) exit 0 ;;
+      esac
+      exit 1
+    hint: |
+      echo "idle, attempt $GYM_CHECK_ATTEMPT"
+---
+::task{name="answer"}
+w
+::
+`
+
+// The same with a plain exit 1: any failure of the check's own is a
+// rejected answer, so the attempt ends the same way - and the hint: block
+// runs right away with the new attempt number, since it is the only
+// feedback such a unit has.
+func TestRejectedRunEndsAttempt(t *testing.T) {
+	testAttempts(t, silentAttemptUnit, "idle, attempt 2", "idle, attempt 3")
+}
+
+func testAttempts(t *testing.T, unit, hintAfterFirst, hintAfterSecond string) {
+	t.Helper()
+	te := newTestEnv(t, map[string]string{"010.m/010.attempts/unit.md": unit})
+	if te.eng.Watcher.Source != "netlink" {
+		t.Skip("exec watching needs the proc connector (CAP_NET_ADMIN); run as root")
+	}
+	if err := te.eng.ActivateUnit("m/attempts"); err != nil {
+		t.Fatal(err)
+	}
+	attempts := func() int {
+		var n int
+		te.eng.Store.View(func(d *state.Data) { n = d.Unit("m/attempts").Task("answer").Attempts })
+		return n
+	}
+	// rejections counts check runs that failed on their own (not killed by
+	// the task timeout) - each one judged a command.
+	rejections := func() int {
+		n := 0
+		for _, r := range te.eng.Store.Runs("m/attempts", "answer") {
+			if r.Kind == "run" && r.ExitCode != 0 && !r.TimedOut {
+				n++
+			}
+		}
+		return n
+	}
+
+	sh := newStudentShell(t)
+	// Long-lived so the watcher cannot miss it.
+	sh.Type("bash -c 'exec -a shellgym-wrong sleep 2' &")
+	if !te.waitHint("m/attempts", "answer", hintAfterFirst, 10*time.Second) {
+		t.Fatalf("no %q hint after the first wrong answer", hintAfterFirst)
+	}
+	// The check restarts every 200ms; without a moved horizon it would judge
+	// the same buffered command again and again.
+	time.Sleep(1500 * time.Millisecond)
+	if n := rejections(); n != 1 {
+		t.Fatalf("the wrong answer was judged %d times, want exactly once", n)
+	}
+	if n := attempts(); n != 1 {
+		t.Fatalf("attempts = %d after one rejected answer, want 1", n)
+	}
+
+	sh.Type("bash -c 'exec -a shellgym-wrong sleep 2' &")
+	if !te.waitHint("m/attempts", "answer", hintAfterSecond, 10*time.Second) {
+		t.Fatalf("no %q hint after the second wrong answer", hintAfterSecond)
+	}
+	// Now the check blocks, hits its 3s timeout (exit 1), and the hint:
+	// block runs: it must see the same attempt number, because a timeout
+	// judges nothing. (The hint text may equal the one already shown, in
+	// which case no event is broadcast - so read the recorded hint run.)
+	time.Sleep(6 * time.Second) // at least one timeout cycle plus its hint run
+	if n := attempts(); n != 2 {
+		t.Fatalf("attempts = %d after two rejected answers and a timeout, want 2", n)
+	}
+	var lastHint string
+	for _, r := range te.eng.Store.Runs("m/attempts", "answer") {
+		if r.Kind == "hint" {
+			lastHint = strings.TrimSpace(r.Stdout)
+		}
+	}
+	if lastHint != "idle, attempt 3" {
+		t.Fatalf("hint: block after the timeout printed %q, want GYM_CHECK_ATTEMPT=3", lastHint)
+	}
+
+	sh.Type("bash -c 'exec -a shellgym-right sleep 2' &")
+	if !te.waitEvent("unit", "m/attempts", "completed", 15*time.Second) {
+		t.Fatal("unit did not complete on the right answer")
+	}
+}
 
 func TestUnitDependencyGating(t *testing.T) {
 	te := newTestEnv(t, map[string]string{

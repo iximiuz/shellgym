@@ -207,8 +207,14 @@ Directories are entered with a two-letter command from the 70s.
   `wait_*` checks block until met and accept `--timeout <sec>` or `--now`
   (instant, for level tasks). Full reference: [checks.md](checks.md).
 - Task scripts run as root via `bash -o pipefail`, in their own session,
-  with per-attempt timeouts and whole-tree kill; stdout/stderr/exit are
+  with per-run timeouts and whole-tree kill; stdout/stderr/exit are
   captured without blocking on lingering background children.
+- **Attempts**: an edge check run that exits non-zero on its own (not
+  killed by the task timeout) is a rejected attempt. The engine then
+  moves the task's exec/line horizons to the current sequence numbers
+  (per task, in memory, reset on activation) and increments the task's
+  attempt count in `progress.json`, exported to its check and hint
+  scripts as `GYM_CHECK_ATTEMPT`.
 
 The mechanisms (procfs scanning, the proc connector, direct state
 polling, the check API socket) are described in depth in
@@ -220,8 +226,9 @@ A directory per path under `--state` (default `/var/lib/shellgym`):
 
 ```
 <state>/<path-id>/
-  progress.json            # unit/task statuses, vars, variant draw,
-                           # timestamps (small, atomic tmp+rename writes)
+  progress.json            # unit/task statuses, attempt counts, vars,
+                           # variant draw, timestamps (small, atomic
+                           # tmp+rename writes)
   runs/<module>__<unit>/<task>.jsonl   # last N run records per task
 ```
 

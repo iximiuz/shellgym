@@ -102,10 +102,11 @@ number and exports it to every task script as `GYM_SINCE_EXEC_SEQ`. Exec
 checks only consider events **newer** than this horizon, so a command
 the student ran before ever seeing the unit cannot satisfy it. (Command
 line watching keeps its own ring and its own horizon,
-`GYM_SINCE_LINE_SEQ`, exported the same way.) Within
-one unit attempt the horizon is fixed - a check that is restarted (for
-example after a `hint_exit`) still sees everything the student did since
-activation, so no command is lost between check restarts.
+`GYM_SINCE_LINE_SEQ`, exported the same way.) The horizon is per task.
+It moves to the present when a check run rejects an answer - exits
+non-zero on its own, see [Attempts](authoring-guide.md#attempts) - so
+the restarted check judges only newer commands. A run killed by the task
+timeout keeps its horizon, so no command is lost across such restarts.
 
 ### Limits
 
@@ -262,11 +263,11 @@ of the detection story - it guarantees the isolation properties above:
 - each script gets its own session via `setsid`: no controlling tty (the
   self-match guard) and a clean process group that can be killed as a
   whole tree on timeout;
-- per-attempt timeouts: 30 s for edge checks, 10 s for level polls, 60 s
+- per-run timeouts: 30 s for edge checks, 10 s for level polls, 60 s
   for init scripts, 10 s for hint scripts (a task can override its check
   timeout via `timeout:` in the frontmatter); on expiry the entire
   process group receives SIGKILL;
 - stdout/stderr are captured through real pipes, so a script may leave
   long-lived background children without wedging the runner, and every
-  attempt is recorded (exit code, streams, duration) for the debug
+  run is recorded (exit code, streams, duration) for the debug
   drawer and `/api/debug`.

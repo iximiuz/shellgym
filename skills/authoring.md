@@ -131,6 +131,18 @@ Rules and behaviors:
   unit completes when all edge tasks are completed AND all level tasks
   are simultaneously satisfied; completion is terminal. Edge tasks may
   not depend on level tasks.
+- **attempts**: a check run that exits non-zero on its own (`hint_exit`,
+  or a plain `exit 1` on the wrong branch) is a rejected attempt; a run
+  killed by the task timeout is not. After a rejected attempt the task's
+  exec/line horizon moves to now - the restarted check judges only newer
+  commands, so a wrong answer is judged once and its hint stays until
+  the next try - and `GYM_CHECK_ATTEMPT` (1 on the first run) goes up by
+  one in the task's `check:`/`hint:` scripts; a rejection without
+  `hint_exit` runs `hint:` at once. Escalate with it:
+  `[ "$GYM_CHECK_ATTEMPT" -gt 2 ] && hint_exit "<the answer>"` before
+  the usual nudge. An expired `wait_* --timeout N || exit 1` is the
+  check's own exit and counts - for an idle nudge use a plain blocking
+  wait and `hint:`.
 - **needs (unit-level)** declares that this unit builds on the *state*
   left behind by earlier units; the listed units must be preceding
   units in the same module. Keep chains short (< 5). Use `vars.from`
@@ -189,10 +201,10 @@ Rules and behaviors:
   exactly N argv elements - the way to tell a quoted space-containing
   argument from the same text as separate arguments (identical when
   joined). `--latest` prefers the newest buffered match over the
-  oldest - required for right/wrong-branch checks
+  oldest - use it for right/wrong-branch checks
   (`REPORT=$(wait_exec --latest '(^|/)(right|wrong)$')` then `case` +
-  `hint_exit` on the wrong branch), because the oldest wrong answer
-  would otherwise keep matching on every post-hint restart. IMPORTANT: shells exec only
+  `hint_exit` on the wrong branch), so that when several answers are
+  buffered the newest one is judged. IMPORTANT: shells exec only
   EXTERNAL commands - builtins (`echo`, `printf`, `true`, `false`,
   `pwd`, `type`, `cd`, ...) produce no exec event and are invisible to
   `wait_exec`; anchor such reps on an external command (`whoami`,
@@ -243,7 +255,8 @@ Rules and behaviors:
   cwd`, most recent first); a debugging aid
 - `hint_exit [task] <message>` - pushes a hint to the UI immediately
   and TERMINATES the check script with exit code 42; the task defaults
-  to the current one (`$GYM_TASK`)
+  to the current one (`$GYM_TASK`); the run counts as a rejected
+  attempt (see **attempts** above)
 - `set_var <NAME> <value>` - publishes a task var on the current unit:
   it joins the unit's vars, exported into later runs of the unit's own
   scripts and into scripts of units that `needs:` this unit (persists
@@ -280,8 +293,9 @@ guard that keeps checks from matching themselves).
 Environment available to scripts: unit vars (including task vars from
 `set_var` and the vars of every unit listed in `needs:`), `GYM_UNIT`,
 `GYM_TASK`, `GYM_USER` (observed login user), `GYM_USER_HOME` (that
-user's home directory - never shell out to `getent` for it). `hint:`
-scripts additionally get
+user's home directory - never shell out to `getent` for it), and, in a
+task's `check:`/`hint:`, `GYM_CHECK_ATTEMPT` (see **attempts** above).
+`hint:` scripts additionally get
 `GYM_TASK_EXIT`, `GYM_TASK_STDOUT`, `GYM_TASK_STDERR` from the last
 failed check run - enough to diagnose why it failed and say something
 specific. Hint script stdout replaces the task's hint area live

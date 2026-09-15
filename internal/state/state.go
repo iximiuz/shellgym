@@ -46,6 +46,11 @@ type TaskRun struct {
 type TaskState struct {
 	Status string `json:"status"` // pending|running|satisfied|unsatisfied|completed
 	Hint   string `json:"hint,omitempty"`
+	// Attempts counts the check runs of this task that failed on their own
+	// (a non-zero exit that was not the task timeout): the answers the
+	// check has rejected so far. The task's scripts see it as
+	// GYM_CHECK_ATTEMPT (Attempts+1).
+	Attempts int `json:"attempts,omitempty"`
 }
 
 // UnitState is the persistent per-unit record.

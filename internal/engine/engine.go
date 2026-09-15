@@ -110,7 +110,8 @@ type Engine struct {
 	mu           sync.Mutex
 	activeUnit   string
 	cancel       context.CancelFunc
-	statuses     map[string]string // task name -> status (active unit only)
+	statuses     map[string]string     // task name -> status (active unit only)
+	judged       map[string]judgedSeqs // task name -> horizons after its last rejected attempt (active unit only)
 	sinceExecSeq uint64
 	sinceLineSeq uint64
 	wg           sync.WaitGroup
@@ -310,6 +311,7 @@ func (e *Engine) ActivateUnit(id string) error {
 	e.stopActiveLocked()
 	e.activeUnit = id
 	e.statuses = map[string]string{}
+	e.judged = map[string]judgedSeqs{}
 	ctx, cancel := context.WithCancel(context.Background())
 	e.cancel = cancel
 	e.mu.Unlock()
@@ -543,16 +545,19 @@ func (e *Engine) publishTask(unit, task, status string) {
 // taskEnv builds the environment for task scripts. It is rebuilt for every
 // script run so that task vars (set_var) published after activation are
 // seen: vars of the units this unit `needs:` first, then the unit's own
-// vars (the activation-time snapshot, refreshed from the store).
+// vars (the activation-time snapshot, refreshed from the store). The event
+// horizons are the task's own (see taskSince), and a task's check and hint
+// scripts also get GYM_CHECK_ATTEMPT, the 1-based number of the current
+// attempt at that check (see endAttempt).
 func (e *Engine) taskEnv(u *content.Unit, taskName string, vars map[string]string) map[string]string {
-	sinceExecSeq, sinceLineSeq := e.currentSince()
+	since := e.taskSince(taskName)
 	env := map[string]string{
 		"GYM_UNIT":           u.ID,
 		"GYM_TASK":           taskName,
 		"GYM_USER":           e.Path.ShellUser,
 		"GYM_USER_HOME":      e.userHome(),
-		"GYM_SINCE_EXEC_SEQ": fmt.Sprintf("%d", sinceExecSeq),
-		"GYM_SINCE_LINE_SEQ": fmt.Sprintf("%d", sinceLineSeq),
+		"GYM_SINCE_EXEC_SEQ": fmt.Sprintf("%d", since.exec),
+		"GYM_SINCE_LINE_SEQ": fmt.Sprintf("%d", since.line),
 	}
 	e.Store.View(func(d *state.Data) {
 		for _, need := range u.Front.Needs {
@@ -566,13 +571,21 @@ func (e *Engine) taskEnv(u *content.Unit, taskName string, vars map[string]strin
 	for k, v := range vars {
 		env[k] = v
 	}
+	_, isTask := u.Front.Tasks[taskName]
+	attempts := 0
 	e.Store.View(func(d *state.Data) {
 		if us, ok := d.Units[u.ID]; ok {
 			for k, v := range us.Vars {
 				env[k] = v
 			}
+			if ts, ok := us.Tasks[taskName]; ok && isTask {
+				attempts = ts.Attempts
+			}
 		}
 	})
+	if isTask {
+		env["GYM_CHECK_ATTEMPT"] = fmt.Sprintf("%d", attempts+1)
+	}
 	return env
 }
 
@@ -614,12 +627,50 @@ func (e *Engine) userHome() string {
 	return e.homeDir
 }
 
-// currentSince returns the active unit's activation horizons: the exec
-// and line event sequence numbers snapshotted when it was activated.
-func (e *Engine) currentSince() (execSeq, lineSeq uint64) {
+// judgedSeqs are a task's exec and line event horizons after a rejected
+// attempt: the sequence numbers at that moment.
+type judgedSeqs struct{ exec, line uint64 }
+
+// taskSince returns the event horizons for a run of the named task: the
+// active unit's activation horizons (the sequence numbers snapshotted when
+// it was activated), moved forward past whatever the task's earlier
+// attempts already judged (see endAttempt).
+func (e *Engine) taskSince(task string) judgedSeqs {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	return e.sinceExecSeq, e.sinceLineSeq
+	since := judgedSeqs{e.sinceExecSeq, e.sinceLineSeq}
+	if j, ok := e.judged[task]; ok {
+		since.exec = max(since.exec, j.exec)
+		since.line = max(since.line, j.line)
+	}
+	return since
+}
+
+// endAttempt records that a check run of the task rejected an answer: it
+// exited non-zero on its own (not killed by the task timeout), whether
+// through hint_exit or a plain exit 1. Two things follow. The task's
+// horizons move past everything that happened so far, so the restarted
+// check does not judge the same answer again (its hint stays up until the
+// student tries something new, and a right/wrong branch no longer spins on
+// a buffered wrong answer). And the task's attempt counter advances, so
+// its later check and hint runs see GYM_CHECK_ATTEMPT one higher - the
+// hook for escalating hints.
+func (e *Engine) endAttempt(unit, task string) {
+	e.mu.Lock()
+	if e.activeUnit == unit {
+		var j judgedSeqs
+		if e.Watcher != nil {
+			j.exec = e.Watcher.Seq()
+		}
+		if e.Lines != nil {
+			j.line = e.Lines.Seq()
+		}
+		e.judged[task] = j
+	}
+	e.mu.Unlock()
+	_ = e.Store.Update(func(d *state.Data) {
+		d.Unit(unit).Task(task).Attempts++
+	})
 }
 
 // runInit executes init tasks sequentially. Returns false if any failed.
@@ -702,12 +753,22 @@ func (e *Engine) superviseEdge(ctx context.Context, u *content.Unit, t *content.
 			e.maybeCompleteUnit(u)
 			return
 		}
-		// Attempt failed (usually: wait_* timed out). Maybe refresh the hint.
-		// A hint_exit attempt already delivered a specific hint - never run
-		// the generic hint: script over it, and count it as the refresh.
+		// Check run failed. A failure of its own (not the task timeout) is
+		// a rejected answer: close the attempt (moving the horizon, bumping
+		// GYM_CHECK_ATTEMPT) before any hint runs, so the hint sees the
+		// attempt the student is now on.
+		judged := !res.TimedOut
+		if judged {
+			e.endAttempt(u.ID, t.Name)
+		}
+		// Maybe refresh the hint. A hint_exit run already delivered a
+		// specific hint - never run the generic hint: script over it, and
+		// count it as the refresh. A rejected attempt without hint_exit gets
+		// the hint: block right away (that is its only feedback); otherwise
+		// the block is rate-limited.
 		if res.ExitCode == checkclient.HintExitCode {
 			lastHint = time.Now()
-		} else if t.Hint != "" && time.Since(lastHint) >= e.Opts.HintInterval {
+		} else if t.Hint != "" && (judged || time.Since(lastHint) >= e.Opts.HintInterval) {
 			lastHint = time.Now()
 			e.runHint(ctx, u, t, vars, res)
 		}
