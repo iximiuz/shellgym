@@ -11,11 +11,11 @@ paths go anywhere: `..` is the parent of the current directory, and
 `.` is the current directory itself. Names can be chained with slashes,
 so `../data` means "up one, then into `data`".
 
-This module uses a small work tree in your home directory. Every unit
+This module uses a small `projects` tree in your home directory. Every unit
 creates it if it is missing, so nothing you do can break it:
 
 ```
-~/work
+~/projects
 ├── archive
 │   └── 2025
 ├── data

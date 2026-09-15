@@ -5,7 +5,7 @@ vars:
 init:
   - name: build_work_tree
     run: |
-      W="$GYM_USER_HOME/work"
+      W="$GYM_USER_HOME/projects"
       mkdir -p "$W/reports/drafts" "$W/reports/final" "$W/archive/2025" "$W/data/imports" "$W/data/exports" "$W/notes"
       [ -f "$W/reports/final/summary.txt" ] || echo "Final report, approved." > "$W/reports/final/summary.txt"
       [ -f "$W/reports/drafts/outline.txt" ] || echo "Report outline, work in progress." > "$W/reports/drafts/outline.txt"
@@ -17,12 +17,12 @@ init:
 tasks:
   arrived:
     check: |
-      P=$(wait_cwd "$(dirname "$GYM_USER_HOME/work/$FILE")") || exit 1
+      P=$(wait_cwd "$(dirname "$GYM_USER_HOME/projects/$FILE")") || exit 1
       set_var SHELL_PID "$P"
     hint: |
       echo "Everything before the last slash is the directory. Move there and leave the file name off the path."
     solve: |
-      cd ~/work/$(dirname $FILE)
+      cd ~/projects/$(dirname $FILE)
   listed:
     needs: [arrived]
     timeout: 60
@@ -37,7 +37,7 @@ tasks:
 A teammate asks you to check on a file and gives you its path:
 
 ```
-~/work/${FILE}
+~/projects/${FILE}
 ```
 
 The last part of a path is the file. Everything before it is the

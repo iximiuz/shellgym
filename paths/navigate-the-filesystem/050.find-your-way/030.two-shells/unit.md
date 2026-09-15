@@ -4,7 +4,7 @@ requires: [readline]
 init:
   - name: build_work_tree
     run: |
-      W="$GYM_USER_HOME/work"
+      W="$GYM_USER_HOME/projects"
       mkdir -p "$W/reports/drafts" "$W/reports/final" "$W/archive/2025" "$W/data/imports" "$W/data/exports" "$W/notes"
       [ -f "$W/reports/final/summary.txt" ] || echo "Final report, approved." > "$W/reports/final/summary.txt"
       [ -f "$W/reports/drafts/outline.txt" ] || echo "Report outline, work in progress." > "$W/reports/drafts/outline.txt"
@@ -16,12 +16,12 @@ init:
 tasks:
   parked:
     check: |
-      P=$(wait_cwd "$GYM_USER_HOME/work/notes") || exit 1
+      P=$(wait_cwd "$GYM_USER_HOME/projects/notes") || exit 1
       set_var OUTER_PID "$P"
     hint: |
-      echo "Start in ~/work/notes. From anywhere, cd ~/work/notes gets you there."
+      echo "Start in ~/projects/notes. From anywhere, cd ~/projects/notes gets you there."
     solve: |
-      cd ~/work/notes
+      cd ~/projects/notes
   nested:
     needs: [parked]
     timeout: 60
@@ -46,7 +46,7 @@ tasks:
     timeout: 60
     check: |
       wait_line '^exit *$' >/dev/null || exit 1
-      wait_cwd "$OUTER_PID" "$GYM_USER_HOME/work/notes"
+      wait_cwd "$OUTER_PID" "$GYM_USER_HOME/projects/notes"
     hint: |
       echo "Leave the inner shell with exit. The outer shell is still in notes."
     solve: |
@@ -56,7 +56,7 @@ tasks:
 The working directory belongs to a shell, and every shell has its own.
 A shell inside a shell demonstrates this clearly.
 
-Start in `~/work/notes`. Then run `bash` with no arguments: this starts
+Start in `~/projects/notes`. Then run `bash` with no arguments: this starts
 a second shell inside the first, and the prompt you see now belongs to
 the inner one. Move the inner shell to `/tmp`. Finally, run `exit` to
 close the inner shell and look at the prompt: the outer shell never
@@ -64,7 +64,7 @@ moved.
 
 ::task{name="parked"}
 #active
-Waiting for your shell to be in `~/work/notes`...
+Waiting for your shell to be in `~/projects/notes`...
 #completed
 The outer shell is parked in `notes`. Now start the inner one.
 ::

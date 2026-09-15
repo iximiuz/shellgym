@@ -4,7 +4,7 @@ requires: [readline]
 init:
   - name: build_work_tree
     run: |
-      W="$GYM_USER_HOME/work"
+      W="$GYM_USER_HOME/projects"
       mkdir -p "$W/reports/drafts" "$W/reports/final" "$W/archive/2025" "$W/data/imports" "$W/data/exports" "$W/notes"
       [ -f "$W/reports/final/summary.txt" ] || echo "Final report, approved." > "$W/reports/final/summary.txt"
       [ -f "$W/reports/drafts/outline.txt" ] || echo "Report outline, work in progress." > "$W/reports/drafts/outline.txt"
@@ -26,7 +26,7 @@ tasks:
     needs: [etc]
     timeout: 60
     check: |
-      wait_cwd "$SHELL_PID" "$GYM_USER_HOME/work/reports/drafts" >/dev/null || exit 1
+      wait_cwd "$SHELL_PID" "$GYM_USER_HOME/projects/reports/drafts" >/dev/null || exit 1
       LINE=$(wait_line --latest '^cd( +.*)?$') || exit 1
       ARG=$(printf '%s' "$LINE" | sed -E 's/^cd +//')
       case "$ARG" in
@@ -34,14 +34,14 @@ tasks:
         *) hint_exit "You reached drafts, but not in one command through the tilde. Go back to /etc and write the path from ~ down." ;;
       esac
     hint: |
-      echo "One command: cd and the path starting with the tilde, ~/work/reports/drafts."
+      echo "One command: cd and the path starting with the tilde, ~/projects/reports/drafts."
     solve: |
-      cd ~/work/reports/drafts
+      cd ~/projects/reports/drafts
   final:
     needs: [drafts]
     timeout: 60
     check: |
-      wait_cwd "$SHELL_PID" "$GYM_USER_HOME/work/reports/final" >/dev/null || exit 1
+      wait_cwd "$SHELL_PID" "$GYM_USER_HOME/projects/reports/final" >/dev/null || exit 1
       LINE=$(wait_line --latest '^cd( +.*)?$') || exit 1
       ARG=$(printf '%s' "$LINE" | sed -E 's/^cd +//')
       case "$ARG" in
@@ -56,7 +56,7 @@ tasks:
     needs: [final]
     timeout: 60
     check: |
-      wait_cwd "$SHELL_PID" "$GYM_USER_HOME/work/reports/drafts" >/dev/null || exit 1
+      wait_cwd "$SHELL_PID" "$GYM_USER_HOME/projects/reports/drafts" >/dev/null || exit 1
       LINE=$(wait_line --latest '^cd( +.*)?$') || exit 1
       ARG=$(printf '%s' "$LINE" | sed -E 's/^cd +//')
       case "$ARG" in
@@ -87,7 +87,7 @@ This is the last unit, and it is a lap through every kind of move in
 this gym:
 
 1. Move to `/etc` by its full path.
-2. Jump to `~/work/reports/drafts` in one command, through the tilde.
+2. Jump to `~/projects/reports/drafts` in one command, through the tilde.
 3. Cross over to the sibling `final` with a relative path through the parent.
 4. Bounce back to `drafts` with the dash.
 5. Go home the shortest way.

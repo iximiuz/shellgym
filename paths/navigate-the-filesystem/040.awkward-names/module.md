@@ -10,12 +10,12 @@ together. This module applies it to paths, adds the backslash as a
 second way to protect a single character, and shows how **Tab**
 completion types the awkward part for you.
 
-The units add a few oddly named directories to the `~/work` tree:
+The units add a few oddly named directories to the `~/projects` tree:
 
 ```
-~/work
+~/projects
 ├── 2026 (draft)
-├── Project Plans
+├── Vendor Contracts
 ├── quarterly-financial-statements-2026
 └── ... the directories from the previous modules
 ```

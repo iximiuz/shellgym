@@ -4,7 +4,7 @@ requires: [readline]
 init:
   - name: build_work_tree
     run: |
-      W="$GYM_USER_HOME/work"
+      W="$GYM_USER_HOME/projects"
       mkdir -p "$W/reports/drafts" "$W/reports/final" "$W/archive/2025" "$W/data/imports" "$W/data/exports" "$W/notes"
       [ -f "$W/reports/final/summary.txt" ] || echo "Final report, approved." > "$W/reports/final/summary.txt"
       [ -f "$W/reports/drafts/outline.txt" ] || echo "Report outline, work in progress." > "$W/reports/drafts/outline.txt"
@@ -16,22 +16,22 @@ init:
 tasks:
   at_work:
     check: |
-      P=$(wait_cwd "$GYM_USER_HOME/work") || exit 1
+      P=$(wait_cwd "$GYM_USER_HOME/projects") || exit 1
       set_var SHELL_PID "$P"
     hint: |
-      echo "Start in ~/work. From anywhere, cd ~/work gets you there."
+      echo "Start in ~/projects. From anywhere, cd ~/projects gets you there."
     solve: |
-      cd ~/work
+      cd ~/projects
   arrived:
     needs: [at_work]
     timeout: 60
     check: |
-      wait_cwd "$SHELL_PID" "$GYM_USER_HOME/work/notes" >/dev/null || exit 1
+      wait_cwd "$SHELL_PID" "$GYM_USER_HOME/projects/notes" >/dev/null || exit 1
       LINE=$(wait_line --latest '^cd( +.*)?$') || exit 1
       ARG=$(printf '%s' "$LINE" | sed -E 's/^cd +//')
       case "$ARG" in
         ./*) exit 0 ;;
-        *) hint_exit "You are in notes, but the path did not start with the one-dot name. Go back to ~/work and write the path as a dot, a slash, and the name." ;;
+        *) hint_exit "You are in notes, but the path did not start with the one-dot name. Go back to ~/projects and write the path as a dot, a slash, and the name." ;;
       esac
     hint: |
       echo "Start the path with a single dot and a slash, then the directory name."
@@ -44,14 +44,14 @@ which means the current directory itself. The path `./notes` reads "in this
 directory, the thing called `notes`". It reaches the same place as
 plain `notes`.
 
-Start in `~/work` and move into `notes` with a path that begins with
+Start in `~/projects` and move into `notes` with a path that begins with
 the one-dot name.
 
 ::task{name="at_work"}
 #active
-Waiting for your shell to be in `~/work`...
+Waiting for your shell to be in `~/projects`...
 #completed
-You are in `~/work`. Now enter `notes` through the one-dot name.
+You are in `~/projects`. Now enter `notes` through the one-dot name.
 ::
 
 ::task{name="arrived"}

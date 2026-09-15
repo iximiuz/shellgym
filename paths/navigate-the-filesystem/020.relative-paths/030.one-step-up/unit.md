@@ -6,7 +6,7 @@ vars:
 init:
   - name: build_work_tree
     run: |
-      W="$GYM_USER_HOME/work"
+      W="$GYM_USER_HOME/projects"
       mkdir -p "$W/reports/drafts" "$W/reports/final" "$W/archive/2025" "$W/data/imports" "$W/data/exports" "$W/notes"
       [ -f "$W/reports/final/summary.txt" ] || echo "Final report, approved." > "$W/reports/final/summary.txt"
       [ -f "$W/reports/drafts/outline.txt" ] || echo "Report outline, work in progress." > "$W/reports/drafts/outline.txt"
@@ -18,17 +18,17 @@ init:
 tasks:
   at_start:
     check: |
-      P=$(wait_cwd "$GYM_USER_HOME/work/$START") || exit 1
+      P=$(wait_cwd "$GYM_USER_HOME/projects/$START") || exit 1
       set_var SHELL_PID "$P"
     hint: |
-      echo "Start in ~/work/${START}. From anywhere, cd ~/work/${START} gets you there."
+      echo "Start in ~/projects/${START}. From anywhere, cd ~/projects/${START} gets you there."
     solve: |
-      cd ~/work/$START
+      cd ~/projects/$START
   arrived:
     needs: [at_start]
     timeout: 60
     check: |
-      wait_cwd "$SHELL_PID" "$(dirname "$GYM_USER_HOME/work/$START")" >/dev/null || exit 1
+      wait_cwd "$SHELL_PID" "$(dirname "$GYM_USER_HOME/projects/$START")" >/dev/null || exit 1
       LINE=$(wait_line --latest '^cd( +.*)?$') || exit 1
       ARG=$(printf '%s' "$LINE" | sed -E 's/^cd +//')
       case "$ARG" in
@@ -45,12 +45,12 @@ Every directory has a parent, the directory that contains it. The
 relative name of the parent is always `..` (two dots). It works from
 anywhere, without knowing what the parent is called.
 
-Start in `~/work/${START}`. Then move one level up, into the parent,
+Start in `~/projects/${START}`. Then move one level up, into the parent,
 using the two-dot name.
 
 ::task{name="at_start"}
 #active
-Waiting for your shell to be in `~/work/${START}`...
+Waiting for your shell to be in `~/projects/${START}`...
 #completed
 You are in `${START}`. Now go one level up.
 ::

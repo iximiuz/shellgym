@@ -6,7 +6,7 @@ vars:
 init:
   - name: build_work_tree
     run: |
-      W="$GYM_USER_HOME/work"
+      W="$GYM_USER_HOME/projects"
       mkdir -p "$W/reports/drafts" "$W/reports/final" "$W/archive/2025" "$W/data/imports" "$W/data/exports" "$W/notes"
       [ -f "$W/reports/final/summary.txt" ] || echo "Final report, approved." > "$W/reports/final/summary.txt"
       [ -f "$W/reports/drafts/outline.txt" ] || echo "Report outline, work in progress." > "$W/reports/drafts/outline.txt"
@@ -18,12 +18,12 @@ init:
 tasks:
   at_start:
     check: |
-      P=$(wait_cwd "$GYM_USER_HOME/work/$FROM") || exit 1
+      P=$(wait_cwd "$GYM_USER_HOME/projects/$FROM") || exit 1
       set_var SHELL_PID "$P"
     hint: |
-      echo "Start in ~/work/${FROM}. From anywhere, cd ~/work/${FROM} gets you there."
+      echo "Start in ~/projects/${FROM}. From anywhere, cd ~/projects/${FROM} gets you there."
     solve: |
-      cd ~/work/$FROM
+      cd ~/projects/$FROM
   arrived:
     needs: [at_start]
     timeout: 60
@@ -33,7 +33,7 @@ tasks:
       ARG=$(printf '%s' "$LINE" | sed -E 's/^cd +//')
       case "$ARG" in
         ../../..|../../../) exit 0 ;;
-        *) hint_exit "You are home, but not by climbing. Go back down to ~/work/${FROM} and count the levels: each two-dot name takes you up one." ;;
+        *) hint_exit "You are home, but not by climbing. Go back down to ~/projects/${FROM} and count the levels: each two-dot name takes you up one." ;;
       esac
     hint: |
       echo "Count how many directories lie between you and home, and chain that many two-dot names with slashes."
@@ -44,12 +44,12 @@ tasks:
 You know two ways home already: a bare `cd` and `cd ~`. Here is the
 long way, for practice: climb there with `..` only.
 
-Start in `~/work/${FROM}`. Count how many levels separate you from
+Start in `~/projects/${FROM}`. Count how many levels separate you from
 your home directory, and climb up all of them in one relative path.
 
 ::task{name="at_start"}
 #active
-Waiting for your shell to be in `~/work/${FROM}`...
+Waiting for your shell to be in `~/projects/${FROM}`...
 #completed
 You are in `${FROM}`. Now climb home level by level, in one path.
 ::

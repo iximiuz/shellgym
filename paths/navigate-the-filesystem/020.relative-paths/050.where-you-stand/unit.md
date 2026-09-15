@@ -4,7 +4,7 @@ requires: [readline]
 init:
   - name: build_work_tree
     run: |
-      W="$GYM_USER_HOME/work"
+      W="$GYM_USER_HOME/projects"
       mkdir -p "$W/reports/drafts" "$W/reports/final" "$W/archive/2025" "$W/data/imports" "$W/data/exports" "$W/notes"
       [ -f "$W/reports/final/summary.txt" ] || echo "Final report, approved." > "$W/reports/final/summary.txt"
       [ -f "$W/reports/drafts/outline.txt" ] || echo "Report outline, work in progress." > "$W/reports/drafts/outline.txt"
@@ -35,7 +35,7 @@ tasks:
     needs: [tried]
     timeout: 60
     check: |
-      wait_cwd "$SHELL_PID" "$GYM_USER_HOME/work/reports/final" >/dev/null || exit 1
+      wait_cwd "$SHELL_PID" "$GYM_USER_HOME/projects/reports/final" >/dev/null || exit 1
       LINE=$(wait_line --latest '^cd( +.*)?$') || exit 1
       ARG=$(printf '%s' "$LINE" | sed -E 's/^cd +//')
       case "$ARG" in
@@ -43,25 +43,25 @@ tasks:
         *) exit 0 ;;
       esac
     hint: |
-      echo "From home, the way to final passes through work first. Put all three names in the path."
+      echo "From home, the way to final passes through projects first. Put all three names in the path."
     solve: |
-      cd work/reports/final
+      cd projects/reports/final
 ---
 
 A relative path is only as good as the place you use it from. The same
-`reports/final` works from `~/work` and fails from anywhere else.
+`reports/final` works from `~/projects` and fails from anywhere else.
 
 Start in your home directory and run `cd reports/final` anyway. Read
 the error. Your shell has not moved.
 
-Then get to `~/work/reports/final` with a relative path that is correct
+Then get to `~/projects/reports/final` with a relative path that is correct
 from where you actually stand.
 
 ::task{name="at_home"}
 #active
 Waiting for your shell to be in your home directory...
 #completed
-You are home. Now try the path that only works from `~/work`.
+You are home. Now try the path that only works from `~/projects`.
 ::
 
 ::task{name="tried"}

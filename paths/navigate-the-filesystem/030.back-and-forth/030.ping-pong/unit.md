@@ -4,7 +4,7 @@ requires: [readline]
 init:
   - name: build_work_tree
     run: |
-      W="$GYM_USER_HOME/work"
+      W="$GYM_USER_HOME/projects"
       mkdir -p "$W/reports/drafts" "$W/reports/final" "$W/archive/2025" "$W/data/imports" "$W/data/exports" "$W/notes"
       [ -f "$W/reports/final/summary.txt" ] || echo "Final report, approved." > "$W/reports/final/summary.txt"
       [ -f "$W/reports/drafts/outline.txt" ] || echo "Report outline, work in progress." > "$W/reports/drafts/outline.txt"
@@ -16,12 +16,12 @@ init:
 tasks:
   first:
     check: |
-      P=$(wait_cwd "$GYM_USER_HOME/work/archive/2025") || exit 1
+      P=$(wait_cwd "$GYM_USER_HOME/projects/archive/2025") || exit 1
       set_var SHELL_PID "$P"
     hint: |
-      echo "Start in ~/work/archive/2025. From anywhere, cd ~/work/archive/2025 gets you there."
+      echo "Start in ~/projects/archive/2025. From anywhere, cd ~/projects/archive/2025 gets you there."
     solve: |
-      cd ~/work/archive/2025
+      cd ~/projects/archive/2025
   second:
     needs: [first]
     timeout: 60
@@ -35,7 +35,7 @@ tasks:
     needs: [second]
     timeout: 60
     check: |
-      wait_cwd "$SHELL_PID" "$GYM_USER_HOME/work/archive/2025" >/dev/null || exit 1
+      wait_cwd "$SHELL_PID" "$GYM_USER_HOME/projects/archive/2025" >/dev/null || exit 1
       LINE=$(wait_line --latest '^cd( +.*)?$') || exit 1
       ARG=$(printf '%s' "$LINE" | sed -E 's/^cd +//')
       case "$ARG" in
@@ -67,13 +67,13 @@ Every `cd -` also updates the memory, so the dash works in both
 directions: two directories can be alternated with the same two
 characters, again and again.
 
-Start in `~/work/archive/2025` and move to `/var/tmp` (a second
+Start in `~/projects/archive/2025` and move to `/var/tmp` (a second
 scratch space, whose files survive a restart). Then bounce back to
 `2025`, and forward to `/var/tmp` again, using only the dash.
 
 ::task{name="first"}
 #active
-Waiting for your shell to be in `~/work/archive/2025`...
+Waiting for your shell to be in `~/projects/archive/2025`...
 #completed
 You are in `2025`. Now go to `/var/tmp`.
 ::

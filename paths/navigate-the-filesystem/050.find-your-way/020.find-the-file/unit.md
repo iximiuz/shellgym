@@ -6,7 +6,7 @@ vars:
 init:
   - name: build_work_tree
     run: |
-      W="$GYM_USER_HOME/work"
+      W="$GYM_USER_HOME/projects"
       mkdir -p "$W/reports/drafts" "$W/reports/final" "$W/archive/2025" "$W/data/imports" "$W/data/exports" "$W/notes"
       [ -f "$W/reports/final/summary.txt" ] || echo "Final report, approved." > "$W/reports/final/summary.txt"
       [ -f "$W/reports/drafts/outline.txt" ] || echo "Report outline, work in progress." > "$W/reports/drafts/outline.txt"
@@ -17,41 +17,41 @@ init:
       chown -R "$GYM_USER:$GYM_USER" "$W"
   - name: hide_the_file
     run: |
-      W="$GYM_USER_HOME/work"
+      W="$GYM_USER_HOME/projects"
       rm -f "$W"/*/"$NAME" "$W"/*/*/"$NAME"
       echo "You found it." > "$W/$HIDE/$NAME"
       chown "$GYM_USER:$GYM_USER" "$W/$HIDE/$NAME"
 tasks:
   at_work:
     check: |
-      P=$(wait_cwd "$GYM_USER_HOME/work") || exit 1
+      P=$(wait_cwd "$GYM_USER_HOME/projects") || exit 1
       set_var SHELL_PID "$P"
     hint: |
-      echo "Start in ~/work. From anywhere, cd ~/work gets you there."
+      echo "Start in ~/projects. From anywhere, cd ~/projects gets you there."
     solve: |
-      cd ~/work
+      cd ~/projects
   found:
     needs: [at_work]
     timeout: 60
     check: |
-      wait_cwd "$SHELL_PID" "$GYM_USER_HOME/work/$HIDE"
+      wait_cwd "$SHELL_PID" "$GYM_USER_HOME/projects/$HIDE"
     hint: |
       echo "Look into each directory with ls until ${NAME} shows up, then move into that directory."
     solve: |
-      cd ~/work/$HIDE
+      cd ~/projects/$HIDE
 ---
 
-A file named `${NAME}` is somewhere in the `~/work` tree, and nobody
+A file named `${NAME}` is somewhere in the `~/projects` tree, and nobody
 remembers where. Every directory in the tree is a candidate.
 
-Start in `~/work`. Look into the directories until you spot the file,
+Start in `~/projects`. Look into the directories until you spot the file,
 then move your shell into the directory that holds it.
 
 ::task{name="at_work"}
 #active
-Waiting for your shell to be in `~/work`...
+Waiting for your shell to be in `~/projects`...
 #completed
-You are in `~/work`. Now find the file.
+You are in `~/projects`. Now find the file.
 ::
 
 ::task{name="found"}

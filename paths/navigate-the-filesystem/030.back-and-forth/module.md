@@ -10,5 +10,5 @@ it can be used inside any path. And `cd -` takes you back to the
 directory you were in just before the last move. This module
 practices all three.
 
-The units use the same `~/work` tree as the previous module. It is
+The units use the same `~/projects` tree as the previous module. It is
 recreated on every unit if needed.
