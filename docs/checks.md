@@ -27,7 +27,9 @@ talks to the daemon over its unix socket (see
   the unit's `needs:`) plus `GYM_UNIT`, `GYM_TASK`, `GYM_USER` (the
   observed login user), `GYM_USER_HOME`, `GYM_SINCE_EXEC_SEQ` (exec-event
   horizon, see `wait_exec`), `GYM_SINCE_LINE_SEQ` (command-line horizon,
-  see `wait_line`), and `GYM_SOCK` (the daemon socket path)
+  see `wait_line`), and `GYM_SOCK` (the daemon socket path). Exec and
+  line events are numbered from one clock, so a mark taken with
+  `event_seq` orders events of both kinds (`--after`)
   into every script. A task's `check:` and `hint:` scripts also get
   `GYM_CHECK_ATTEMPT`, the attempt number (see
   [Attempts](authoring-guide.md#attempts) in the authoring guide).
@@ -56,6 +58,18 @@ Non-blocking. Exits 2 if no (matching) shell is found. Typical use is inside `hi
 hint: |
   echo "Your shell is still in $(shell_cwd)."
 ```
+
+### `event_seq`
+
+Prints the daemon's current event **sequence number**: a mark that every
+event observed from now on - an exec or a typed line, both are numbered
+from one clock - exceeds. Non-blocking. Take it right after a check has
+seen the event a later step must follow, publish it with `set_var`, and
+pass it to that step's `wait_exec`/`wait_env`/`wait_line` as `--after`
+(see [`wait_exec`](#wait_exec---argc-n---latest---cwd-path---after-n-regex)
+for the pattern). The mark is taken a moment after the matched event, so
+a command run in that same instant would fall before it - not a concern
+at typing speed.
 
 ### `shells`
 
@@ -105,7 +119,7 @@ check: |
 
 ## Command execution
 
-### `wait_exec [--argc N] [--latest] [--cwd <path>] <regex>`
+### `wait_exec [--argc N] [--latest] [--cwd <path>] [--after N] <regex>`
 
 Waits until the student runs a command whose **full argv** (joined with
 single spaces) matches the regex. On success it prints the matched
@@ -183,12 +197,32 @@ check: |
 A command whose cwd could not be read (the process was gone already)
 never satisfies `--cwd`.
 
+`--after N` considers only events observed after the mark `N` (on top
+of the task's own horizon), where `N` comes from [`event_seq`](#event_seq).
+That chains two steps in order across tasks: the first task takes a mark
+once it has seen its event, the second only accepts what came after the
+mark:
+
+```yaml
+tasks:
+  broke_it:
+    check: |
+      wait_exec "(^|/)date --${BOGUS}\$" || exit 1
+      set_var BROKE_SEQ "$(event_seq)"
+  reported:
+    needs: [broke_it]
+    check: |
+      # a hostname run BEFORE the failing date is not a report on it
+      REPORT=$(wait_exec --after "$BROKE_SEQ" --latest '(^|/)(hostname|whoami)$') || exit 1
+      [[ "$REPORT" == *hostname* ]] || hint_exit "..."
+```
+
 Very short-lived processes are harvested from `/proc` right after the
 exec event; in the rare case the process vanishes before its argv could
 be read, the event is dropped. Commands typed at human speed are
 reliably captured.
 
-### `wait_env [--cwd <path>] <NAME> [regex]`
+### `wait_env [--cwd <path>] [--after N] <NAME> [regex]`
 
 Waits for an executed command whose **environment** contains variable
 `NAME` (with a value matching `regex`, if given). This is the way to
@@ -201,11 +235,11 @@ check: |
   wait_env GREETING '^hello$'
 ```
 
-The same student-activity scoping as `wait_exec` applies, and so does
-`--cwd`. Environments are captured at exec time (bounded at 32 KiB), so
-even fast commands are inspected reliably.
+The same student-activity scoping as `wait_exec` applies, and so do
+`--cwd` and `--after`. Environments are captured at exec time
+(bounded at 32 KiB), so even fast commands are inspected reliably.
 
-### `wait_line [--latest] <regex>`
+### `wait_line [--latest] [--after N] <regex>`
 
 Waits until the student **types a command line** matching the regex - the
 line as bash's readline returned it, before the shell parsed it
@@ -231,7 +265,8 @@ tasks:
 The same student-activity scoping as `wait_exec` applies: only lines read
 after the unit's activation, only by tty-attached shells of the observed
 user, buffered across check restarts, and `--latest` prefers the newest
-buffered match. Lines are captured **as typed**, so keep regexes
+buffered match, and `--after N` takes an `event_seq` mark exactly as
+for `wait_exec`. Lines are captured **as typed**, so keep regexes
 permissive about whitespace (`sleep 2&&hostname` is the same command)
 and combine with `wait_exec` when the command must also have run.
 

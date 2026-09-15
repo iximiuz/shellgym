@@ -64,6 +64,7 @@ func ServeCheckAPI(sockPath, shellUser string, watcher *ExecWatcher, eng *Engine
 	mux.HandleFunc("/hint", api.handleHint)
 	mux.HandleFunc("/vars", api.handleSetVar)
 	mux.HandleFunc("/exec/seq", api.handleSeq)
+	mux.HandleFunc("/events/seq", api.handleEventsSeq)
 	mux.HandleFunc("/exec/wait", api.handleExecWait)
 	mux.HandleFunc("/exec/snapshot", api.handleSnapshot)
 	mux.HandleFunc("/line/seq", api.handleLineSeq)
@@ -85,6 +86,14 @@ func (a *checkAPI) handleShells(w http.ResponseWriter, r *http.Request) {
 
 func (a *checkAPI) handleSeq(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]uint64{"seq": a.watcher.Seq()})
+}
+
+// handleEventsSeq serves the event_seq built-in: the current value of the
+// clock every event ring stamps from. Any event observed from now on -
+// exec or typed line - gets a higher number, so the value is a mark a
+// later check can pass as --after.
+func (a *checkAPI) handleEventsSeq(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, map[string]uint64{"seq": eventClock.Load()})
 }
 
 // ExecWaitRequest asks the daemon to block until a matching exec event.

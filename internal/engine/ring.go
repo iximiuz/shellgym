@@ -4,14 +4,22 @@ import (
 	"context"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 )
+
+// eventClock hands out sequence numbers to every ring in the process, so
+// an exec event and a line event can be ordered against each other: a
+// check that took a mark after one event (`event_seq`) can ask
+// any event check for what came after it (`--after N`).
+var eventClock atomic.Uint64
 
 // eventRing is a bounded, sequence-numbered buffer of observed events with
 // blocking matchers - the shared core of the exec watcher (proc connector)
 // and the line watcher (readline uprobe). Events are stamped with a
-// monotonically increasing Seq and the publish time; checks wait on the
-// ring by Seq, so a unit's activation horizon is one number.
+// monotonically increasing Seq (from the process-wide eventClock) and the
+// publish time; checks wait on the ring by Seq, so a unit's activation
+// horizon is one number.
 type eventRing[T any] struct {
 	mu     sync.Mutex
 	cond   *sync.Cond
@@ -134,7 +142,7 @@ func (r *eventRing[T]) Snapshot(after uint64, limit int) []T {
 func (r *eventRing[T]) publish(ev T) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.seq++
+	r.seq = eventClock.Add(1)
 	ev = r.stamp(ev, r.seq, time.Now())
 	r.ring = append(r.ring, ev)
 	if len(r.ring) > r.size {

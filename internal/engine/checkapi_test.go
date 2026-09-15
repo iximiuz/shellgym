@@ -273,3 +273,37 @@ func TestExecWaitCwdScopesToDirectory(t *testing.T) {
 		t.Fatal("--cwd must match the whole path, not a prefix")
 	}
 }
+
+// Exec and line events share one sequence clock, and event_seq reads it:
+// a mark taken after one event is exceeded by every later event of either
+// kind, so "the `echo $?` line typed after the sleep" is `wait_line
+// --after <mark taken once the sleep exec was seen>`.
+func TestEventSeqMarkOrdersExecAndLineEvents(t *testing.T) {
+	w := NewExecWatcher()
+	l := NewLineWatcher()
+	l.Source = "uprobe"
+	api := &checkAPI{watcher: w, lines: l, shellUID: 1000}
+
+	l.publish(LineEvent{PID: 1, UID: 1000, TTYNr: 3, Line: "echo $?"}) // typed before the sleep
+	w.publish(ExecEvent{PID: 2, UID: 1000, TTYNr: 3, Argv: []string{"sleep", "350"}})
+	if !execWaitOnce(t, api, ExecWaitRequest{Regex: `(^|/)sleep 350$`, TimeoutSec: 0.05}).Matched {
+		t.Fatal("sleep exec not seen")
+	}
+	r := httptest.NewRequest("GET", "http://gym/events/seq", nil)
+	rec := httptest.NewRecorder()
+	api.handleEventsSeq(rec, r)
+	var mark struct {
+		Seq uint64 `json:"seq"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &mark); err != nil || mark.Seq == 0 {
+		t.Fatalf("bad mark: %v %s", err, rec.Body.String())
+	}
+	if out, _ := lineWaitOnce(t, api, LineWaitRequest{After: mark.Seq, Regex: `^echo \$\?$`, TimeoutSec: 0.05}); out.Matched {
+		t.Fatal("a line typed before the mark must not satisfy --after")
+	}
+	l.publish(LineEvent{PID: 1, UID: 1000, TTYNr: 3, Line: "echo $?"}) // typed after
+	out, _ := lineWaitOnce(t, api, LineWaitRequest{After: mark.Seq, Regex: `^echo \$\?$`, TimeoutSec: 0.05})
+	if !out.Matched || out.Event.Seq <= mark.Seq {
+		t.Fatalf("the later line should match above the mark: %+v (mark %d)", out, mark.Seq)
+	}
+}

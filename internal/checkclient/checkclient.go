@@ -25,7 +25,7 @@ import (
 
 // Names lists every check command (used to generate PATH shims).
 var Names = []string{
-	"shell_cwd", "shells", "hint_exit", "set_var",
+	"shell_cwd", "shells", "hint_exit", "set_var", "event_seq",
 	"wait_cwd", "wait_exec", "wait_env", "wait_line",
 	"wait_file", "wait_file_gone", "wait_file_contains",
 	"wait_file_mode", "wait_file_newer", "wait_dir",
@@ -47,18 +47,22 @@ func Main(name string, args []string) int {
 	if name == "set_var" {
 		return setVar(args)
 	}
+	if name == "event_seq" {
+		return eventSeq(args)
+	}
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
 	timeout := fs.Float64("timeout", 0, "give up after this many seconds (0 = wait forever)")
 	now := fs.Bool("now", false, "single instant check, no waiting")
 	argc := fs.Int("argc", 0, "wait_exec only: also require exactly this many argv elements")
 	latest := fs.Bool("latest", false, "wait_exec/wait_line only: prefer the newest buffered match over the oldest")
 	cwd := fs.String("cwd", "", "wait_exec/wait_env only: also require the command to have run from this working directory (exact path, or a regex when it contains metacharacters)")
+	after := fs.Uint64("after", 0, "wait_exec/wait_env/wait_line only: only consider events observed after the mark N (as printed by event_seq)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 	args = fs.Args()
 
-	c := &client{sock: os.Getenv("GYM_SOCK"), since: sinceExecSeq(), sinceLine: sinceLineSeq(), argc: *argc, latest: *latest, cwd: *cwd}
+	c := &client{sock: os.Getenv("GYM_SOCK"), since: sinceExecSeq(), sinceLine: sinceLineSeq(), argc: *argc, latest: *latest, cwd: *cwd, after: *after}
 	deadline := time.Now().Add(365 * 24 * time.Hour)
 	if *timeout > 0 {
 		deadline = time.Now().Add(time.Duration(*timeout * float64(time.Second)))
@@ -95,6 +99,7 @@ type client struct {
 	argc      int
 	latest    bool
 	cwd       string // working-directory filter (--cwd) for exec waits
+	after     uint64 // explicit horizon (--after) for exec and line waits, on top of the task's own
 }
 
 func (c *client) http() *http.Client {
@@ -183,18 +188,18 @@ func (c *client) run(name string, args []string, deadline time.Time) (bool, erro
 		})
 	case "wait_exec":
 		if len(args) != 1 {
-			return false, fmt.Errorf("usage: wait_exec [--argc N] [--latest] [--cwd <path>] <regex>")
+			return false, fmt.Errorf("usage: wait_exec [--argc N] [--latest] [--cwd <path>] [--after N] <regex>")
 		}
 		req := execWaitRequest{Regex: args[0], Argc: c.argc, Latest: c.latest, Cwd: c.cwd}
 		return c.execWait(req, oneShot, deadline, true)
 	case "wait_line":
 		if len(args) != 1 {
-			return false, fmt.Errorf("usage: wait_line [--latest] <regex>")
+			return false, fmt.Errorf("usage: wait_line [--latest] [--after N] <regex>")
 		}
 		return c.lineWait(args[0], oneShot, deadline)
 	case "wait_env":
 		if len(args) < 1 || len(args) > 2 {
-			return false, fmt.Errorf("usage: wait_env [--cwd <path>] <NAME> [regex]")
+			return false, fmt.Errorf("usage: wait_env [--cwd <path>] [--after N] <NAME> [regex]")
 		}
 		req := execWaitRequest{EnvName: args[0], EnvRegex: ".*", Cwd: c.cwd}
 		if len(args) == 2 {
@@ -483,6 +488,37 @@ func portListening(port int) bool {
 //	hint_exit <message>          (task inferred from $GYM_TASK)
 //	hint_exit <task> <message>   (explicit task, for multi-task scripts)
 //
+// eventSeq implements the event_seq built-in: it prints the daemon's
+// current event sequence number, a mark that every event observed from
+// now on (exec or typed line) exceeds. A task passes it on with set_var so
+// a later task can wait with --after and judge only what followed.
+func eventSeq(args []string) int {
+	if len(args) != 0 {
+		fmt.Fprintln(os.Stderr, "usage: event_seq")
+		return 2
+	}
+	c := &client{sock: os.Getenv("GYM_SOCK")}
+	if c.sock == "" {
+		fmt.Fprintln(os.Stderr, "event_seq: GYM_SOCK not set (must run inside a task script)")
+		return 2
+	}
+	resp, err := c.http().Get("http://gym/events/seq")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "event_seq: %v\n", err)
+		return 2
+	}
+	defer resp.Body.Close()
+	var out struct {
+		Seq uint64 `json:"seq"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		fmt.Fprintf(os.Stderr, "event_seq: %v\n", err)
+		return 2
+	}
+	fmt.Println(out.Seq)
+	return 0
+}
+
 // The binary itself exits with HintExitCode; the shell-function wrapper
 // the runner injects then terminates the WHOLE check script with that
 // code, so `wait_x ... || hint_exit "msg"` both reports and stops.
@@ -607,7 +643,7 @@ func (c *client) execWait(req execWaitRequest, oneShot bool, deadline time.Time,
 	if c.sock == "" {
 		return false, fmt.Errorf("GYM_SOCK not set (check must run inside a task script)")
 	}
-	req.After = c.since
+	req.After = max(c.since, c.after)
 	if oneShot {
 		req.TimeoutSec = 0.05
 	} else {
@@ -652,7 +688,7 @@ func (c *client) lineWait(regex string, oneShot bool, deadline time.Time) (bool,
 	if c.sock == "" {
 		return false, fmt.Errorf("GYM_SOCK not set (check must run inside a task script)")
 	}
-	req := lineWaitRequest{After: c.sinceLine, Regex: regex, Latest: c.latest}
+	req := lineWaitRequest{After: max(c.sinceLine, c.after), Regex: regex, Latest: c.latest}
 	if oneShot {
 		req.TimeoutSec = 0.05
 	} else {

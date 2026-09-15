@@ -35,10 +35,13 @@ buffered while it was locked. "Run date, then hostname" as two gated
 who ran `hostname` first; "cd to X, then ls -l" is completed by an
 `ls -l` typed anywhere before the cd. Task-level `needs:` orders the
 task boxes, never the commands - a gated check must demand something the
-earlier steps cannot have produced (an effect; a match condition the
-stray command fails, e.g. `--cwd` for location reps or an argument the
-first step created), or the steps become separate units (a unit's
-activation is a fresh horizon). The UI auto-activates just the next unit in path
+earlier steps cannot have produced: chain by sequence number (step one
+`wait_exec ... || exit 1` then `set_var STEP1_SEQ "$(event_seq)"`, step
+two `wait_exec --after "$STEP1_SEQ" ...`; exec and line events share one
+clock, so a `wait_line --after` a mark taken after an exec works too), verify an
+effect, or add a match condition the stray command fails (`--cwd` for
+location reps, an argument the first step created); or the steps
+become separate units (a unit's activation is a fresh horizon). The UI auto-activates just the next unit in path
 order; a student who jumps ahead must start the unit explicitly, and a
 unit whose `needs:` dependencies are not all completed is **locked** -
 it cannot be activated at all until they are.
@@ -199,7 +202,7 @@ Rules and behaviors:
   `TRAVELER=$(wait_cwd "/tmp/gym/$D") || exit 1` then
   `set_var TRAVELER "$TRAVELER"` in one unit, and
   `wait_cwd "$TRAVELER" "$GYM_USER_HOME"` in the unit that `needs:` it
-- `wait_exec [--argc N] [--latest] [--cwd <path>] <regex>` - the student ran a command
+- `wait_exec [--argc N] [--latest] [--cwd <path>] [--after N] <regex>` - the student ran a command
   matching regex (matched against full argv joined with spaces; only
   tty-attached processes of the observed user, executed after the
   unit's activation, count; matched commands are buffered, so a command
@@ -219,19 +222,22 @@ Rules and behaviors:
   matched against the whole path when it contains metacharacters - the
   `wait_cwd` rules; an unreadable cwd never matches) - for reps where
   the location is the point: a listing from inside a directory, a
-  relative path, a file created "right here". IMPORTANT: shells exec only
+  relative path, a file created "right here". `--after N` accepts only
+  events observed after the mark N taken with `event_seq` - this chains
+  ordered steps across tasks (see the activation note above). IMPORTANT: shells exec only
   EXTERNAL commands - builtins (`echo`, `printf`, `true`, `false`,
   `pwd`, `type`, `cd`, ...) produce no exec event and are invisible to
   `wait_exec`; anchor such reps on an external command (`whoami`,
   `date`, `seq`, `/bin/echo`, ...) or on an effect - or observe the
   typed line itself with `wait_line`. Exec events also carry no trace of
   the shell line: `a; b` and `a && b` are identical to `wait_exec`
-- `wait_line [--latest] <regex>` - the student typed a command line
+- `wait_line [--latest] [--after N] <regex>` - the student typed a command line
   matching regex (the line as bash's readline returned it, surrounding
   whitespace trimmed, otherwise verbatim: operators, quotes, pipes, and
   builtins included). Same scoping and buffering as `wait_exec`; prints
   the matched line so a check can branch on it (`--latest` for
-  right/wrong branching, as above). There is no `--cwd` for lines: when
+  right/wrong branching, as above; `--after` as for `wait_exec`, on
+  the same clock). There is no `--cwd` for lines: when
   the location matters, pair the line check with a `wait_exec --cwd` on
   the command the line runs (external commands only - a builtin line
   such as `echo *` cannot be placed). Keep regexes permissive about
@@ -241,9 +247,12 @@ Rules and behaviors:
   the readline uprobe (no tracefs, non-bash login shell) mark such units
   unsupported instead of running them; without the declaration the check
   fails at once with exit code 2 there. Only bash is observed
-- `wait_env [--cwd <path>] <NAME> [regex]` - a command was observed with the env var
+- `wait_env [--cwd <path>] [--after N] <NAME> [regex]` - a command was observed with the env var
   set; this is how exports are verified (ask the student to run any
-  command after exporting). `--cwd` as for `wait_exec`
+  command after exporting). `--cwd` and `--after` as for `wait_exec`
+- `event_seq` - prints the current event sequence number (one clock for
+  exec and line events): the mark for `--after`. Take it right after the
+  wait that saw step one's event and publish it with `set_var`
 - `wait_file <path|glob>` / `wait_file_gone <path|glob>`
 - `wait_dir <path|glob>` - like `wait_file`, but only a directory
   satisfies it (use for `mkdir` tasks so a plain file at the path does
@@ -318,6 +327,107 @@ task's `check:`/`hint:`, `GYM_CHECK_ATTEMPT` (see **attempts** above).
 failed check run - enough to diagnose why it failed and say something
 specific. Hint script stdout replaces the task's hint area live
 (rate-limited to one refresh per ~10 s).
+
+## Reliable checks
+
+A check's verdict must follow from what the student did in THIS rep,
+not from what happened to be around. Design every check against both
+failure modes, and treat each as a bug, not a corner case:
+
+- a **false positive** completes the task on something that is not the
+  rep - a command typed earlier or elsewhere, state left over from a
+  previous session or unit, a wrapper process whose argv mentions the
+  command, the check's own text, a lucky buffered event;
+- a **false negative** never completes (or rejects with a hint) although
+  the rep was done - an over-exact regex, a judged-once wrong answer
+  that keeps winning, a fast command that was missed, a builtin that
+  never exec'ed, a check killed by its own `--timeout`.
+
+The student sees a green box that lies, or a red box that will not
+turn green. Both destroy trust in the gym. Mechanisms and gotchas:
+
+- **The event horizon is per unit, not per task.** Event checks judge
+  everything buffered since the unit was activated, so a task behind
+  `needs:` sees commands typed while it was locked (see the activation
+  note above). Order two steps with a mark: step one
+  `wait_exec ... || exit 1` then `set_var STEP1_SEQ "$(event_seq)"`,
+  step two `wait_exec --after "$STEP1_SEQ" ...` (`wait_line` and
+  `wait_env` too; one clock for all events). Place a command with
+  `--cwd <dir>` when where it ran is the point. Never rely on the gate
+  alone for order.
+- **Judge the newest answer** in right/wrong branches: `--latest` +
+  `case` + `hint_exit`. Without it, the oldest buffered wrong answer is
+  judged again on every restart until the horizon moves - and a correct
+  retry after it is never seen.
+- **A rejection moves the horizon.** `hint_exit` and a plain `exit 1`
+  both do, so only reject on evidence about the student's LATEST
+  answer, never on an ambiguous or stale one. `wait_* --timeout N ||
+  exit 1` is a rejection too: it silently hides everything the student
+  did before it fired. For an idle nudge use a plain blocking wait and
+  the `hint:` block.
+- **State checks pass on pre-existing state.** `wait_file`, `wait_dir`,
+  `wait_cwd`, `wait_port` look at the world, not at the student: a
+  target that already exists (from a previous session, a sibling unit,
+  a system default) completes the task at activation. Init must clear
+  the target (`rm -f`, `pkill`, a fresh random name via `vars:`) so
+  only the rep can satisfy the check; and a task verifying that
+  something disappears must first confirm it existed (baseline negative
+  check).
+- **Effects over keystrokes.** `wait_exec` proves a command ran, not
+  that it worked (`mkdir` on an existing path, `touch` on a read-only
+  dir). Verify the effect (`wait_file`, `wait_dir`, `wait_file_newer`,
+  `wait_port`, ...) and add `wait_exec` only for the how, or for
+  commands that leave no trace.
+- **Builtins leave no exec event.** `echo`, `cd`, `pwd`, `type`,
+  `export`, `printf`, `true`, `false`, `[`, `read` - `wait_exec` and
+  `wait_env` never see them. Observe the typed line with `wait_line`
+  (`requires: [readline]`), verify the effect, or anchor the rep on an
+  external command (`whoami`, `date`, `/bin/echo`). And a `wait_line`
+  cannot be placed with `--cwd`: pair it with a `wait_exec --cwd` on
+  the external command the line runs.
+- **Text is not shape.** Joined argv cannot tell `date '+%A %d'` from
+  `date +%A %d` - use `--argc N`. Exec events cannot tell `a; b` from
+  `a && b` - use `wait_line`. Argv cannot tell an expanded glob from
+  names typed by hand - accept both, or judge the line.
+- **Regexes: permissive in form, strict in anchors.** Accept every
+  correct spelling: short and long options in any order, `--opt=v` and
+  `--opt v`, `(^|/)` before the command (argv0 may be a path), an
+  optional trailing `/` on directories, `2s?` for `sleep 2`. Anchor
+  both ends (`(^|/)date -u$`) so `date -u --bogus` or `cat date` do not
+  match. Escape `$` (`\$`) and `.` (`\.`) inside double-quoted regexes
+  built from vars, and remember RE2 has no backreferences.
+- **`--cwd` is the exec'ed process's cwd read a moment after the exec.**
+  It is the shell's cwd for ordinary commands; a program that chdirs at
+  once (`tar -C`, `make -C`, `git -C`) may already show its target, and
+  a process gone before the read never matches. A regex path follows
+  `wait_cwd` rules (whole path, `^(...)$`).
+- **Process patterns match wrappers and the check itself.**
+  `pgrep -f`, `wait_proc*` see every argv that CONTAINS the text - a
+  `bash -c "sleep 600; ..."` wrapper, `script -qec`, the check script.
+  Use the bracket trick plus an argument only the target has and anchor
+  the whole cmdline (`"^(/usr/bin/)?slee[p] ${N}s?\$"`); otherwise
+  `wait_proc_gone` never fires and `wait_proc_state` reads the wrapper.
+- **Several shells may be open.** `wait_cwd <path>` matches ANY shell
+  of the student; when later steps must continue in the same one, keep
+  its PID (`P=$(wait_cwd ...)`, `set_var SHELL_PID "$P"`) and pass it
+  as the first argument from then on. `wait_exec` cannot be pinned to a
+  shell - use `--cwd` and `--after` to narrow it.
+- **Timing.** Commands typed at human speed are captured reliably;
+  processes spawned in machine-speed loops can be missed - never depend
+  on catching those. `wait_cwd` and the file checks poll every 200 ms;
+  a very short-lived process can be gone before `wait_proc` looks, so
+  wait for it with a bounded `--timeout N || true` and rely on the
+  `_gone` or the effect afterwards. An `event_seq` mark is taken a
+  moment after the matched event: a command run in that same instant
+  falls before it (never at typing speed).
+- **Level tasks re-evaluate and may flip back.** Use `--now` on every
+  `wait_*` in a level task; edge tasks (the default) settle once.
+- **Prove it with the solver and with alternatives.** `shellgym solve`
+  types fast and exactly as written: a racy check or an over-exact
+  regex fails there first. Then try the plausible alternative answers
+  by hand (long options, a different order, `echo` instead of `ls`,
+  a path instead of a name) and make sure each one either passes or
+  gets a specific hint - never silence.
 
 ## Markdown body
 

@@ -229,6 +229,7 @@ Checks that need daemon-side state talk to it over a unix socket
 | `/shells` | `shell_cwd`, `shells`, `wait_cwd` | current student-shell list |
 | `/exec/wait` | `wait_exec`, `wait_env` | block until a matching exec event |
 | `/exec/seq`, `/exec/snapshot` | debugging | event-stream introspection |
+| `/events/seq` | `event_seq` | the shared event clock (a mark for `--after`) |
 | `/line/wait` | `wait_line` | block until a matching command line is read (`501` without the `readline` capability) |
 | `/line/seq`, `/line/snapshot` | debugging | line-stream introspection |
 | `/hint` | `hint_exit` | push a hint to the UI |

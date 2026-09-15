@@ -340,6 +340,13 @@ tasks:
 The gating alone does not express the order; the gated check has to
 demand something the earlier command cannot supply. The usual ways:
 
+- **chain the steps by sequence number** - the first task takes a mark
+  once it has seen its event (`wait_exec ... || exit 1`, then
+  `set_var STEP1_SEQ "$(event_seq)"`), and the second task only accepts
+  events after the mark (`wait_exec --after "$STEP1_SEQ" ...`). Exec and
+  line events share one clock, so this works across kinds too
+  (`wait_line --after` a mark taken after an exec). This is the fix for
+  the first example and for every "do X, then report/inspect" rep;
 - **verify an effect that only the correct order produces** - a file
   that must exist (`wait_file`), be newer than something the first step
   created (`wait_file_newer`), a process, a port;
@@ -353,10 +360,10 @@ demand something the earlier command cannot supply. The usual ways:
 - **accept it** when the order truly does not matter to the rep, and
   say so in the text.
 
-The first example is best split into two units, or given an effect to
-watch. Task-level `needs:` remains the right tool for what it does well:
+Task-level `needs:` remains the right tool for what it does well:
 locking the second task box until the first is done, and threading
-state (`set_var`) from one task to the next.
+state (`set_var`, including a sequence number) from one task to the
+next.
 
 The `hint:` block runs between attempts, so it sees the number of the
 attempt the student is now on. After a rejection without `hint_exit` it
