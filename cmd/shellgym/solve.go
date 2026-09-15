@@ -423,19 +423,30 @@ func solveUnit(c *apiClient, sh *studentShell, u *content.Unit, timeout time.Dur
 // `sleep $PAUSE && hostname` would never match what the unit asks for.
 // Other `$` references are left for bash to expand (the vars are exported
 // into the solve shell too, for uses like `$((PAUSE + 1))`).
+//
+// The line is scanned once, left to right, and every reference is
+// resolved against the original text: a value that was just substituted
+// is never rescanned, and adjacent references such as `$LO$HI` both
+// resolve (a per-variable pass would turn `$LO$HI` into `$LO4` first, and
+// the word-boundary match for `$LO` would then fail).
 func expandVars(line string, vars map[string]string) string {
-	names := make([]string, 0, len(vars))
-	for k := range vars {
-		names = append(names, k)
-	}
-	// Longest first, so $PAUSE_MAX is not clobbered by $PAUSE.
-	sort.Slice(names, func(i, j int) bool { return len(names[i]) > len(names[j]) })
-	for _, name := range names {
-		line = strings.ReplaceAll(line, "${"+name+"}", vars[name])
-		line = regexp.MustCompile(`\$`+regexp.QuoteMeta(name)+`\b`).ReplaceAllLiteralString(line, vars[name])
-	}
-	return line
+	return varRef.ReplaceAllStringFunc(line, func(ref string) string {
+		m := varRef.FindStringSubmatch(ref)
+		name := m[1]
+		if name == "" {
+			name = m[2]
+		}
+		if v, ok := vars[name]; ok {
+			return v
+		}
+		return ref
+	})
 }
+
+// varRef matches one `${NAME}` (group 1) or `$NAME` (group 2) reference.
+// The greedy identifier match makes `$PAUSE_MAX` one reference, never
+// `$PAUSE` followed by `_MAX`.
+var varRef = regexp.MustCompile(`\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))`)
 
 // waitTask polls the unit API until the named task is completed (or, for
 // level tasks, currently satisfied).
