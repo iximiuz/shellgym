@@ -3,7 +3,8 @@ title: "The time, twice"
 tasks:
   local_time:
     check: |
-      wait_exec '(^|/)date$'
+      wait_exec '(^|/)date$' || exit 1
+      set_var LOCAL_SEQ "$(event_seq)"
     hint: |
       echo "Run the bare command first: date with no arguments."
     solve: |
@@ -11,7 +12,8 @@ tasks:
   utc_time:
     needs: [local_time]
     check: |
-      wait_exec '(^|/)date -u$'
+      # only a date -u run after the plain date counts
+      wait_exec --after "$LOCAL_SEQ" '(^|/)date -u$'
     hint: |
       echo "Run the same command, then a space, then the short option: a dash and the letter u."
     solve: |

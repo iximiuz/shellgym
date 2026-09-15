@@ -7,7 +7,8 @@ tasks:
   interrupted:
     timeout: 60
     check: |
-      wait_exec "(^|/)sleep ${NAP}s?\$"
+      wait_exec "(^|/)sleep ${NAP}s?\$" || exit 1
+      set_var NAP_SEQ "$(event_seq)"
       wait_proc --timeout 15 "^(/usr/bin/)?slee[p] ${NAP}s?\$" || true
       wait_proc_gone "^(/usr/bin/)?slee[p] ${NAP}s?\$"
     hint: |
@@ -22,7 +23,8 @@ tasks:
     needs: [interrupted]
     timeout: 45
     check: |
-      wait_line '^echo +("\$\?"|\$\?|\$\{\?\}) *$'
+      # only a line typed after the sleep started counts (an earlier echo $? saw some other status)
+      wait_line --after "$NAP_SEQ" '^echo +("\$\?"|\$\?|\$\{\?\}) *$'
     hint: |
       echo "Right after the ^C, print the status of the last command: echo \$?"
     solve: |

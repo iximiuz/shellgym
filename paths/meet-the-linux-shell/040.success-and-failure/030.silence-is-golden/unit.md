@@ -3,7 +3,8 @@ title: Silence is golden
 tasks:
   napped:
     check: |
-      wait_exec '(^|/)sleep 2s?$'
+      wait_exec '(^|/)sleep 2s?$' || exit 1
+      set_var NAP_SEQ "$(event_seq)"
     hint: |
       echo "Run: sleep 2"
     solve: |
@@ -11,7 +12,8 @@ tasks:
   reported:
     needs: [napped]
     check: |
-      wait_exec '(^|/)whoami$'
+      # only a report given after the nap counts
+      wait_exec --after "$NAP_SEQ" '(^|/)whoami$'
     hint: |
       echo "sleep printed nothing, but its exit status is 0, which means success. So the correct report is whoami."
     solve: |

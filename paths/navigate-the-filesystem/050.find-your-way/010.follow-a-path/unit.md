@@ -27,7 +27,7 @@ tasks:
     needs: [arrived]
     timeout: 60
     check: |
-      wait_exec '(^|/)ls( .*)?$'
+      wait_exec --cwd "$(dirname "$GYM_USER_HOME/projects/$FILE")" '(^|/)ls( .*)?$'
     hint: |
       echo "Run ls to see the files in the directory you are in. The one from the path should be among them."
     solve: |

@@ -5,7 +5,8 @@ vars:
 tasks:
   broke_it:
     check: |
-      wait_exec "(^|/)date --${BOGUS}\$"
+      wait_exec "(^|/)date --${BOGUS}\$" || exit 1
+      set_var BROKE_SEQ "$(event_seq)"
     hint: |
       echo "First run the failing command: date --${BOGUS}"
     solve: |
@@ -13,7 +14,8 @@ tasks:
   reported:
     needs: [broke_it]
     check: |
-      REPORT=$(wait_exec --latest '(^|/)(hostname|whoami)$')
+      # only a report given after the failing date counts
+      REPORT=$(wait_exec --after "$BROKE_SEQ" --latest '(^|/)(hostname|whoami)$') || exit 1
       [[ "$REPORT" == *hostname* ]] && exit 0
       hint_exit "You reported with whoami, but whoami is the answer for a status of 0, and the failing date left a different number. Reveal it again with echo \$? right after the failing command, then report accordingly."
     hint: |

@@ -12,7 +12,7 @@ tasks:
     needs: [arrived]
     timeout: 60
     check: |
-      wait_exec '(^|/)ls( .*)?$'
+      wait_exec --cwd / '(^|/)ls( .*)?$'
     hint: |
       echo "Run ls with no arguments to list the names in the current directory."
     solve: |

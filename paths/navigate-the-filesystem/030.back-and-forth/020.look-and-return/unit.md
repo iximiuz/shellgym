@@ -27,7 +27,7 @@ tasks:
     timeout: 60
     check: |
       wait_cwd "$SHELL_PID" /etc >/dev/null || exit 1
-      wait_exec '(^|/)ls( .*)?$'
+      wait_exec --cwd /etc '(^|/)ls( .*)?$'
     hint: |
       echo "Move to /etc, then run ls to see what is in it."
     solve: |
