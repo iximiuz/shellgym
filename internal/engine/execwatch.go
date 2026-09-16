@@ -220,6 +220,9 @@ func harvestProc(pid int) (ExecEvent, bool) {
 			ppid, _ = strconv.Atoi(strings.TrimSpace(v))
 		}
 	}
+	if cwd == "" {
+		cwd = inheritCwd(pid, ppid, argv)
+	}
 	ev := ExecEvent{PID: pid, PPID: ppid, UID: uid, TTYNr: ttyNr, Argv: argv, Cwd: cwd}
 	if ttyNr != 0 {
 		// Eager env capture (bounded): fast interactive commands are gone
@@ -232,6 +235,27 @@ func harvestProc(pid int) (ExecEvent, bool) {
 		}
 	}
 	return ev, true
+}
+
+// inheritCwd recovers the working directory of a process whose own cwd link
+// could not be read: a sub-millisecond command (`touch a b c`) can exit
+// between the cmdline read and the cwd readlink. A zombie keeps
+// /proc/<pid>/status readable until its parent reaps it, so ppid is known,
+// and the parent - the interactive shell for a command typed at the prompt -
+// still stands where the child was started: it waits for the child before it
+// runs anything else. Without this, the event carries an unknown cwd and a
+// --cwd filter never matches a command that visibly ran. Returns "" when the
+// parent is gone too.
+func inheritCwd(pid, ppid int, argv []string) string {
+	if ppid <= 1 {
+		return ""
+	}
+	cwd, err := os.Readlink(fmt.Sprintf("/proc/%d/cwd", ppid))
+	if err != nil {
+		return ""
+	}
+	log.Printf("execwatch: pid %d (%s) exited before its cwd was read; using cwd %s of parent %d", pid, argv[0], cwd, ppid)
+	return cwd
 }
 
 // splitNul splits a NUL-separated /proc string (cmdline, environ).

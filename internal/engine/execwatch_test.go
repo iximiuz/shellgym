@@ -2,6 +2,8 @@ package engine
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"testing"
@@ -90,5 +92,44 @@ func TestWaitMatchUnblocksOnContextCancel(t *testing.T) {
 		}
 	case <-time.After(3 * time.Second):
 		t.Fatal("WaitMatch did not unblock on context cancellation")
+	}
+}
+
+// TestInheritCwdFromParent covers the fast-command race: the child has
+// exited (a zombie: /proc/<pid>/status readable, cwd link gone) and the
+// parent's cwd stands in for it.
+func TestInheritCwdFromParent(t *testing.T) {
+	cmd := exec.Command("true")
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	pid := cmd.Process.Pid
+	defer func() { _, _ = cmd.Process.Wait() }()
+	// Wait for the child to become a zombie without reaping it.
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		stat, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
+		if err == nil {
+			if f := statFields(string(stat)); len(f) > 2 && f[2] == "Z" {
+				break
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("child did not become a zombie")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if _, err := os.Readlink(fmt.Sprintf("/proc/%d/cwd", pid)); err == nil {
+		t.Skip("zombie still has a readable cwd link on this kernel")
+	}
+	want, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := inheritCwd(pid, os.Getpid(), []string{"true"}); got != want {
+		t.Errorf("inheritCwd = %q, want parent cwd %q", got, want)
+	}
+	if got := inheritCwd(pid, 1, []string{"true"}); got != "" {
+		t.Errorf("inheritCwd with ppid 1 = %q, want empty", got)
 	}
 }
