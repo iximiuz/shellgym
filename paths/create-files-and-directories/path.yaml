@@ -1,0 +1,7 @@
+id: create-files-and-directories
+title: "Linux 101: Create Files and Directories"
+description: >
+  Your fifth hands-on session in a Linux terminal. Create files and refresh timestamps with
+  touch, build single and nested directories with mkdir, handle awkward names, and act on a
+  group of files with one pattern.
+shellUser: laborant

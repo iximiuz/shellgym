@@ -1,0 +1,7 @@
+id: list-files-and-use-patterns
+title: "Linux 101: List Files and Use Patterns"
+description: >
+  Your fourth hands-on session in a Linux terminal. Inspect directories with ls, read what a
+  listing tells you, sort it to find the entry you need, and let the shell match groups of
+  names with patterns.
+shellUser: laborant
