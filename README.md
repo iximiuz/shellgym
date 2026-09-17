@@ -29,7 +29,7 @@ and repetition - and this is what ShellGym provides.
 The student's shell is not modified in any way: no prompt hooks, no wrappers, no special shell functions.
 All observation happens from the outside, meaning you work in the regular Linux terminal.
 
-The Linux "magic" ShellGym uses to achieve "zere instrumentation" observation:
+The Linux "magic" ShellGym uses to achieve "zero instrumentation" observation:
 
 - **procfs** - discovering the interactive shells, reading their working directories, scanning processes, files, and ports.
 - **the kernel proc connector** - a netlink firehose of every `exec()` on the box, used to notice which commands the user runs.
