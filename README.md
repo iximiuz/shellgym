@@ -39,6 +39,8 @@ Because nothing is injected into the shell, the skills practiced in the
 gym transfer one-to-one to any real terminal. See [detection.md](docs/detection.md)
 for how each mechanism works.
 
+![How Shell Gym works](docs/assets/shellgym-concept-v20260917.png)
+
 ## Quick start
 
 > [!TIP]

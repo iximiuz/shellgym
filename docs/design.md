@@ -48,6 +48,8 @@ Three independent subsystems, glued by a small event bus:
 `internal/state` persists progress; `internal/bus` is a tiny pub/sub the
 engine publishes events through and any number of UIs consume.
 
+![Shell Gym architecture](assets/shellgym-architecture-v20260917.png)
+
 ## CLI
 
 The daemon CLI is a typical [spf13/cobra](https://github.com/spf13/cobra) app:

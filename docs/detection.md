@@ -10,6 +10,14 @@ The guiding constraint is **zero instrumentation**: no prompt hooks, no
 shell wrappers, no `PROMPT_COMMAND`, no pty interception. The student's
 shell is a stock process; all observation happens from the outside.
 
+The architecture diagram below shows where each mechanism sits: the
+kernel-side sources at the bottom (proc connector, readline uprobe,
+procfs), the daemon components that consume them (`ExecWatcher`,
+`LineWatcher`, `checkAPI`), and the task scripts that query them over
+`gym.sock`.
+
+![Shell Gym architecture](assets/shellgym-architecture-v20260917.png)
+
 ## Student shell discovery (procfs scan)
 
 Used by: `shell_cwd`, `shells`, `wait_cwd` built-ins.
