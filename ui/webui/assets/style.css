@@ -1,4 +1,4 @@
-/* Shell Gym web UI. Two themes driven by CSS custom properties on
+/* ShellGym web UI. Two themes driven by CSS custom properties on
    <html data-theme="light|dark"> (set before first paint by index.html).
 
    Both themes share one identity: prose in a raised card, sky/labs-blue

@@ -1,11 +1,11 @@
 ---
 name: shellgym-authoring
-description: Author Shell Gym learning paths - path/module/unit format, verification tasks (check/hint/solve), built-in wait_* checks, vars, components, guidelines, and the test workflow. Use when creating or editing Shell Gym content.
+description: Author ShellGym learning paths - path/module/unit format, verification tasks (check/hint/solve), built-in wait_* checks, vars, components, guidelines, and the test workflow. Use when creating or editing ShellGym content.
 ---
 
-# Authoring Shell Gym Learning Paths
+# Authoring ShellGym Learning Paths
 
-Shell Gym is a daemon that trains Linux command-line skills through
+ShellGym is a daemon that trains Linux command-line skills through
 repetition. The student works in an ordinary terminal while small
 assignments ("reps") appear in a split-screen web UI and complete
 automatically as the system state changes. Nothing is injected into the

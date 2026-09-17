@@ -5,7 +5,7 @@ vars:
 init:
   - name: drop_note
     run: |
-      printf 'A note from Shell Gym.\nYour code word is: %s\n' "$SECRET" > "$GYM_USER_HOME/note.txt"
+      printf 'A note from ShellGym.\nYour code word is: %s\n' "$SECRET" > "$GYM_USER_HOME/note.txt"
       chown "$GYM_USER" "$GYM_USER_HOME/note.txt"
 tasks:
   read_note:

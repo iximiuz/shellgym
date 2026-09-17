@@ -1,6 +1,6 @@
 # Student Guide
 
-Using Shell Gym takes two windows (e.g., a split-screen): a **terminal** on the training box and
+Using ShellGym takes two windows (e.g., a split-screen): a **terminal** on the training box and
 the **gym page** in a browser at 127.0.0.1:63636. The page tells you what to do and
 watches your progress; all actual work happens in the terminal.
 

@@ -1,6 +1,6 @@
 # First Steps
 
-Welcome to Shell Gym. On the left you have a real Linux terminal running
+Welcome to ShellGym. On the left you have a real Linux terminal running
 on a real machine. The line ending with a blinking cursor is the
 **prompt**. It means the shell is ready for the next command.
 

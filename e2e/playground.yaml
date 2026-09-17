@@ -1,8 +1,8 @@
 kind: playground
 name: shellgym-e2e
-title: Shell Gym E2E
+title: ShellGym E2E
 description: >
-  Shell Gym trainer playground: a student terminal side by side with the
+  ShellGym trainer playground: a student terminal side by side with the
   gym UI (port 63636). The daemon self-provisions on boot from the
   published dist tarball.
 categories:

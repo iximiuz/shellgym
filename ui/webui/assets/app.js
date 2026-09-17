@@ -1,4 +1,4 @@
-// Shell Gym web UI. Plain ES modules, no frameworks, no build step.
+// ShellGym web UI. Plain ES modules, no frameworks, no build step.
 // All markup lives in <template> elements in index.html; this file only
 // clones templates and fills in data (no HTML-in-JS strings).
 

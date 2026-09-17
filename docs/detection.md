@@ -1,6 +1,6 @@
 # Detection Mechanisms
 
-This page describes how Shell Gym observes the student without touching
+This page describes how ShellGym observes the student without touching
 their shell. Everything the built-in checks (see [checks.md](checks.md))
 report is derived from five mechanisms: student shell discovery, exec
 watching, command line watching, direct system-state polling, and the
@@ -16,7 +16,7 @@ procfs), the daemon components that consume them (`ExecWatcher`,
 `LineWatcher`, `checkAPI`), and the task scripts that query them over
 `gym.sock`.
 
-![Shell Gym architecture](assets/shellgym-architecture-v20260917.png)
+![ShellGym architecture](assets/shellgym-architecture-v20260917.png)
 
 ## Student shell discovery (procfs scan)
 
@@ -54,7 +54,7 @@ Used by: `wait_exec`, `wait_env` built-ins.
 
 The daemon subscribes to the **kernel proc connector** - a netlink
 channel (`NETLINK_CONNECTOR`, `CN_IDX_PROC`) over which the kernel
-multicasts process lifecycle events. Shell Gym listens for exec events
+multicasts process lifecycle events. ShellGym listens for exec events
 only. This requires `CONFIG_PROC_EVENTS` (standard everywhere) and
 `CAP_NET_ADMIN`, which is the main reason the daemon runs as root. If
 the connector cannot be opened, the daemon refuses to start rather than

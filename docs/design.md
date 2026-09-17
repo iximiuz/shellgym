@@ -1,6 +1,6 @@
 # Design
 
-Shell Gym is a background daemon that turns any Linux box into an
+ShellGym is a background daemon that turns any Linux box into an
 interactive command-line trainer. The student works in a completely
 ordinary shell; a split screen (browser tab, or a future TUI) shows small,
 fast-changing assignments - **reps**, in the traditional gym sense - and
@@ -48,7 +48,7 @@ Three independent subsystems, glued by a small event bus:
 `internal/state` persists progress; `internal/bus` is a tiny pub/sub the
 engine publishes events through and any number of UIs consume.
 
-![Shell Gym architecture](assets/shellgym-architecture-v20260917.png)
+![ShellGym architecture](assets/shellgym-architecture-v20260917.png)
 
 ## CLI
 

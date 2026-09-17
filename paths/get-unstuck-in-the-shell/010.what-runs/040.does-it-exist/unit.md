@@ -50,5 +50,5 @@ For a program file, `command -v` prints the location of the file. For
 a builtin, it prints the name itself. And when the name is unknown,
 it prints nothing and exits with a non-zero status. The short output and
 the exit status make `command -v` the usual choice in shell scripts.
-Future Shell Gyms will cover that use.
+Future ShellGyms will cover that use.
 ::

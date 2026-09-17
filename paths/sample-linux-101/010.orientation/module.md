@@ -1,6 +1,6 @@
 # Orientation
 
-Welcome to Shell Gym. On the left you have a regular Linux terminal. This
+Welcome to ShellGym. On the left you have a regular Linux terminal. This
 panel gives you small assignments, one at a time, and watches the system to
 see when you are done. There is nothing special about your shell: every
 command you type is a real command on a real machine.

@@ -1,4 +1,4 @@
-# Shell Gym - project rules
+# ShellGym - project rules
 
 ## Build locally, test in a remote Linux playground
 

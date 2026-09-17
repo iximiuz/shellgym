@@ -31,7 +31,7 @@ func newServeCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "serve",
-		Short: "Run the Shell Gym daemon (web UI + validation engine)",
+		Short: "Run the ShellGym daemon (web UI + validation engine)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return serve(pathDir, addr, stateDir, runDir, shellUser, live)
 		},

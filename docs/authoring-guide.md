@@ -1,6 +1,6 @@
 # Authoring Guide
 
-This page is the human-facing reference for writing Shell Gym learning
+This page is the human-facing reference for writing ShellGym learning
 paths. The same material, condensed for AI agents, is embedded in the
 binary - `shellgym skills authoring` prints it (drop the output into
 `.claude/skills/shellgym-authoring/SKILL.md` to teach an agent the
@@ -9,9 +9,9 @@ format).
 ## Mental model
 
 A **learning path** is a directory tree of small exercises that one
-Shell Gym daemon serves as a whole. The student opens the gym page next
+ShellGym daemon serves as a whole. The student opens the gym page next
 to an ordinary terminal and works through the path exercise by
-exercise. Shell Gym never instruments the student's shell - the daemon
+exercise. ShellGym never instruments the student's shell - the daemon
 observes the system from the outside (interactive shells and their
 working directories, exec events, files, processes, ports) and
 completes tasks the moment the expected state change is seen.
@@ -548,6 +548,6 @@ variant, switch the draw with `POST /api/variants/<key>/<value>` (the
 debug drawer lists the keys and offers the same switch); `GET
 /api/variants` shows the pools and the current draw.
 
-Shell Gym content for iximiuz Labs runs on playgrounds - see the
+ShellGym content for iximiuz Labs runs on playgrounds - see the
 [development notes in the README](../README.md#development-workflow) for
 the sync-build-test loop and the e2e playground setup.

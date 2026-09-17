@@ -1,5 +1,5 @@
 // shellgym - a background daemon that turns a Linux box into an
-// interactive command-line trainer (Shell Gym).
+// interactive command-line trainer (ShellGym).
 package main
 
 import (
@@ -16,7 +16,7 @@ var version = "dev"
 func main() {
 	root := &cobra.Command{
 		Use:           "shellgym",
-		Short:         "Shell Gym - an interactive Linux command-line trainer",
+		Short:         "ShellGym - an interactive Linux command-line trainer",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}

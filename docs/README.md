@@ -1,4 +1,4 @@
-# Shell Gym Documentation
+# ShellGym Documentation
 
 - [Student Guide](student-guide.md) - using the gym: the screen, doing
   reps, hints, navigation, progress and resuming.
