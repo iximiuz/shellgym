@@ -458,7 +458,7 @@ Directories are entered with a two-letter command.
   patched into it over WebSocket. If the unit has exactly ONE task, the
   `name` attribute may be omitted.
 - `::hint` renders folded-by-default - for static nudges the student
-  opts into.
+  opts into, up to the full solution.
 - `::tip` renders an always-visible callout (optional `title`, default
   "Tip") - for terminal-interaction technique that checks cannot verify
   (Tab completion, `Ctrl-R`, arrow-key history, pager keys). Hints answer
@@ -494,8 +494,10 @@ What makes a good path:
 Rules for individual units:
 
 - One skill per rep; most reps should complete in under a minute.
-- Never put the exact solution in the problem statement; hints may
-  point, not paste.
+- Never put the exact solution in text the student always sees: the
+  unit body, `::tip`/`::note`/`::warn`, and the `::task` slots. Folded
+  `::hint` blocks may point at it or hold the full solution (e.g., a
+  last "Solution" hint) - the student opens them only when stuck.
 - **Baseline negative checks**: a task verifying something *disappears*
   must first confirm it existed (`wait_file --timeout 15 X || exit 1`
   then `wait_file_gone X`), or it auto-solves before the scene exists.

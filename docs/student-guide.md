@@ -29,7 +29,8 @@ to unsatisfied if you undo the state before the whole exercise completes.
   /home/laborant", "the file exists but is empty"). They appear
   automatically when the gym sees you struggling.
 
-Hints point at what is wrong; they do not paste the solution.
+Dynamic hints point at what is wrong. A folded hint may show the full
+solution, so give the exercise a real try before you open it.
 
 ## Moving around
 

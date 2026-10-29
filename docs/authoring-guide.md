@@ -437,7 +437,7 @@ Press `Tab` after a few letters of a path and the shell completes it.
   patched into it over WebSocket. If the unit has exactly **one** task,
   the `name` attribute may be omitted.
 - `::hint` renders folded by default - for static nudges the student
-  opts into.
+  opts into, up to the full solution.
 - `::tip` renders an always-visible callout (optional `title`, default
   "Tip"). Use it for terminal-interaction technique the checks cannot
   verify - Tab completion, arrow-key history, `Ctrl-R`, pager keys.
@@ -498,8 +498,10 @@ heading becomes the module title.
   judges commands buffered since the unit started, so its check must
   demand something the earlier steps cannot have produced - see
   [Event horizons](#event-horizons).
-- **Never put the exact solution in the problem statement.** Hints may
-  point, not paste.
+- **Never put the exact solution in text the student always sees** -
+  the unit body, tips, notes, warnings, and the `::task` slots. Folded
+  hints may point at it or hold the full solution (e.g., a last
+  "Solution" hint), because the student opens them only when stuck.
 - **Prefer distro-neutral commands**; label distro-specific units.
 - **Pick scene locations by the unit's lifetime.** Scenes should live
   where a reset is cheap and collisions with the real system are
