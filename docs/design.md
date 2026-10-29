@@ -95,6 +95,7 @@ labels: [ubuntu, debian]   # distro filter (os-release ID/ID_LIKE); empty = any
 requires: [systemd]        # host capability filter; unmet -> unit shown but never activated
 variant: scene=forest      # per-attempt draw: one value per key, other values hidden
 needs: [make-a-home]       # units (same module) whose *state* this unit builds on
+startOver: true            # student-facing "Start over" button (re-runs init, keeps vars)
 vars:
   DIRNAME: { pick: [alpha, bravo, charlie] }   # random choice, sticky per attempt
   TOKEN:   { shell: "head -c3 /dev/urandom | od -An -tx1 | tr -d ' \n'" }
@@ -261,7 +262,12 @@ they never bloat the progress document. The debug API reads them back.
   not all completed; there is no way around the gate. Browsing never
   activates: the web UI auto-activates only the next unit in path order
   and otherwise offers an explicit start button.
-- `POST /api/reset/{id}` - forget unit progress, re-activate
+- `POST /api/reset/{id}` - forget unit progress (vars included),
+  re-activate; the authoring reset
+- `POST /api/start-over/{id}` - the student's "Start over" button: forget
+  unit progress but keep its vars, re-activate. Only for units with
+  `startOver: true` (403 otherwise); 409 for completed, locked, and
+  unsupported units
 - `POST /api/module-seen/{id}` - mark a module intro viewed
 - `GET  /api/module/{id}` - rendered module intro
 - `GET  /api/debug/{id}` - task run history (404 in live mode)

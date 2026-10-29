@@ -88,6 +88,7 @@ labels: [ubuntu, debian]              # optional distro filter (ID/ID_LIKE)
 requires: [systemd]                   # optional host capability filter
 variant: scene=forest                 # optional: shown only when "forest" is drawn for "scene"
 needs: [earlier-unit]                 # optional same-module state deps
+startOver: true                       # optional: a "Start over" button for the student
 vars:
   DIRNAME: { pick: [alpha, bravo] }   # random choice, sticky per attempt
   TOKEN:   { shell: "head -c4 /dev/urandom | od -An -tx1 | tr -d ' \\n'" }
@@ -163,6 +164,14 @@ Rules and behaviors:
 - **Init scripts** run in order, as root, once per activation, 60 s
   timeout each. If one fails the unit's tasks do not start and the
   next activation retries from scratch - keep them idempotent.
+- **startOver: true** gives the student a "Start over" button while
+  the unit is in progress (never on a completed, locked, or
+  unsupported unit). It forgets the unit's progress and re-runs its
+  init, keeping the drawn `vars:` (task vars from `set_var` are
+  cleared). Use it for scenes a student can break beyond repair (a
+  deleted input file, an edited config); the init must rebuild the
+  whole scene from any state. It re-runs this unit's init only, so it
+  cannot repair state that `needs:` units left behind.
 - **solve** is the hidden reference solution: plain shell lines typed
   one by one into a real pty shell by `shellgym solve` (acceptance
   testing). Write each line to be independently typable: no heredocs,
@@ -556,6 +565,8 @@ stderr, and duration is recorded:
 - on disk under `<state>/<path-id>/runs/`.
 
 `POST /api/reset/<unit-id>` forgets a unit's progress and re-runs its
-init from scratch - the fast iteration loop while authoring. `POST
+init from scratch, drawing new vars - the fast iteration loop while
+authoring. (`POST /api/start-over/<unit-id>` is the student's
+`startOver: true` button: same vars, refused for completed units.) `POST
 /api/variants/<key>/<value>` switches the variant draw to preview the
 other units (the debug drawer offers the same switch).

@@ -176,6 +176,7 @@ async function buildUnitScene(meta) {
     if (t.hint && !isDone(t.status)) setTaskHint(box, t.hint);
   }
   refreshTaskBlocking(el);
+  if (unit.startOver && !unit.unsupported) addStartOverBar(el, unit.id);
   if (unit.unsupported) {
     addUnsupportedBar(el, unit);
   } else if (unit.status === 'completed') {
@@ -221,6 +222,70 @@ function addActivateBar(el, meta) {
     } catch { /* the path refresh will straighten things out */ }
   });
   $('.scene-body', el).before(bar);
+}
+
+// A click this soon after a scene appears is a stray one (a double-click on
+// navigation, or a click landing as auto-advance slides the scene in).
+const START_OVER_ARM_MS = 1500;
+// Fallback end of the "Starting over..." state if no task event arrives.
+const START_OVER_BUSY_MAX_MS = 90000;
+let startOverBusyTimer = null;
+
+// addStartOverBar gives a unit with `startOver: true` its "Start over"
+// button: one click rebuilds the scene with the same vars. There is no
+// confirmation step, so the button is made hard to press by accident
+// instead: it sits apart from the unit text (bottom right), ignores clicks
+// right after the scene appears, gives up the focus (no stray Enter or
+// Space), and stays disabled until the restarted checks run. CSS shows it
+// only while the unit is in progress, so it never undoes a solved unit.
+function addStartOverBar(el, unitId) {
+  const bar = tpl('tpl-start-over');
+  const btn = $('.start-over-btn', bar);
+  const shownAt = performance.now();
+  btn.addEventListener('click', async () => {
+    btn.blur();
+    if (btn.disabled || performance.now() - shownAt < START_OVER_ARM_MS) return;
+    setStartOverBusy(el, true);
+    try {
+      const resp = await fetch(`/api/start-over/${unitId}`, { method: 'POST' });
+      if (!resp.ok) throw new Error(await resp.text());
+      await refreshStartedOverUnit(el, unitId);
+    } catch {
+      setStartOverBusy(el, false); // live events and the next resync straighten things out
+    }
+  });
+  $('.unit-complete-banner', el).before(bar);
+}
+
+// setStartOverBusy shows "Starting over..." on the scene's button while
+// the unit's init rebuilds the scene. The first task that runs again, or
+// an init failure, ends it (see onTaskEvent, onInitEvent).
+function setStartOverBusy(el, busy) {
+  const btn = el && $('.start-over-btn', el);
+  if (!btn) return;
+  clearTimeout(startOverBusyTimer);
+  btn.disabled = busy;
+  btn.textContent = busy ? 'Starting over…' : 'Start over';
+  if (busy) startOverBusyTimer = setTimeout(() => setStartOverBusy(el, false), START_OVER_BUSY_MAX_MS);
+}
+
+// refreshStartedOverUnit re-applies a started-over unit's fresh task state
+// to its scene: statuses back to pending, old hints and init errors gone.
+// The vars are unchanged, so the rendered text stays as it is.
+async function refreshStartedOverUnit(el, unitId) {
+  const unit = await fetchJSON(`/api/unit/${unitId}`);
+  if (state.sceneEl !== el) return; // the student moved on meanwhile
+  state.unitTasks = unit.tasks || [];
+  for (const t of state.unitTasks) {
+    const box = taskBox(t.name);
+    if (!box) continue;
+    setTaskStatus(box, t.status);
+    setTaskHint(box, isDone(t.status) ? '' : t.hint || '');
+  }
+  refreshTaskBlocking(el);
+  $('.init-errors', el).replaceChildren();
+  // The init may already be done: the checks are running again.
+  if (state.unitTasks.some((t) => t.status !== 'pending')) setStartOverBusy(el, false);
 }
 
 async function buildModuleScene(meta) {
@@ -345,6 +410,7 @@ function refreshTaskBlocking(root) {
 
 function onTaskEvent(d) {
   if (d.unit !== currentUnitId()) return;
+  if (d.status !== 'pending') setStartOverBusy(state.sceneEl, false);
   const t = state.unitTasks.find((x) => x.name === d.task);
   if (t) t.status = d.status;
   const box = taskBox(d.task);
@@ -363,6 +429,7 @@ function onHintEvent(d) {
 
 function onInitEvent(d) {
   if (d.unit !== currentUnitId() || d.ok) return;
+  setStartOverBusy(state.sceneEl, false);
   const holder = $('.init-errors', state.sceneEl);
   if (!holder) return;
   const div = tpl('tpl-init-error');

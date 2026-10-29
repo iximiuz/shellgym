@@ -98,6 +98,7 @@ labels: [ubuntu, debian]              # optional distro filter
 requires: [systemd]                   # optional host capability filter
 variant: scene=forest                 # optional: shown only when "forest" is drawn for "scene"
 needs: [earlier-unit]                 # optional same-module state deps
+startOver: true                       # optional: a "Start over" button for the student
 vars:
   DIRNAME: { pick: [alpha, bravo] }   # random choice, sticky per attempt
   TOKEN:   { shell: "head -c4 /dev/urandom | od -An -tx1 | tr -d ' \\n'" }
@@ -230,6 +231,31 @@ Conventions that save debugging time:
 - beware `pgrep -f` (and `wait_proc`) matching the init script's own
   text - anchor patterns on argv text only the target has (bracket
   trick plus an argument: `'my-nam[e] 86400'`).
+
+### Starting over: `startOver`
+
+Some scenes can be broken beyond repair by the student: a deleted input
+file, an edited config, a removed image. `startOver: true` gives such a
+unit a **Start over** button at the bottom of its scene. The button
+shows only while the unit is in progress - never on a completed,
+locked, or unsupported unit, so it cannot undo progress. One click
+starts over, without a confirmation step: the button sits apart from
+the unit text and ignores clicks in the first moments after the unit
+appears, so it is hard to press by accident. Starting over forgets the
+unit's progress (task statuses, hints, attempts) and re-runs its init,
+so the scene is rebuilt from scratch. The drawn `vars:` stay the same, so the unit text the student
+has read stays true; task vars published with `set_var` are cleared and
+published again by the restarted checks.
+
+The init of such a unit must rebuild the whole scene from whatever
+state the student left behind (remove and recreate, do not just
+create). Starting over re-runs only this unit's init: state that the
+units in its `needs:` built is not restored.
+
+The button calls `POST /api/start-over/<unit-id>`, which refuses units
+without the flag (403) and completed ones (409). The authoring
+`POST /api/reset/<unit-id>` is different: it works on any unit and
+draws new vars.
 
 ### Tasks
 
@@ -549,7 +575,7 @@ exit code, stdout, stderr, and duration is kept:
 - on disk under `<state>/<path-id>/runs/`.
 
 Iterate with `POST /api/reset/<unit-id>` to forget a unit's progress
-and re-run its init from scratch. To preview the units of another
+and re-run its init from scratch (with a fresh var draw). To preview the units of another
 variant, switch the draw with `POST /api/variants/<key>/<value>` (the
 debug drawer lists the keys and offers the same switch); `GET
 /api/variants` shows the pools and the current draw.

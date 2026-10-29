@@ -538,6 +538,92 @@ func TestResetDuringInitKeepsUnitActive(t *testing.T) {
 	}
 }
 
+const startOverUnit = `---
+title: Fix the scene
+startOver: true
+vars:
+  NAME: { shell: "head -c4 /dev/urandom | od -An -tx1 | tr -d ' \\n'" }
+init:
+  - name: seed
+    run: |
+      mkdir -p /tmp/shellgym-start-over
+      echo seeded > /tmp/shellgym-start-over/$NAME.txt
+tasks:
+  first:
+    check: |
+      wait_file /tmp/shellgym-start-over/$NAME.done
+  second:
+    needs: [first]
+    check: |
+      wait_file /tmp/shellgym-start-over/$NAME.second
+---
+::task{name="first"}
+Waiting...
+::
+
+::task{name="second"}
+Waiting...
+::
+`
+
+// A student's start over forgets the unit's progress and re-runs its init,
+// but keeps the drawn vars: the text the student already read stays true.
+// It is refused for units without startOver: true and for completed units.
+func TestStartOverKeepsVarsAndRerunsInit(t *testing.T) {
+	te := newTestEnv(t, map[string]string{
+		"010.m/010.fix/unit.md":   startOverUnit,
+		"010.m/020.plain/unit.md": fileUnit,
+	})
+	const dir = "/tmp/shellgym-start-over"
+	defer os.RemoveAll(dir)
+	defer os.RemoveAll("/tmp/shellgym-itest")
+
+	if err := te.eng.ActivateUnit("m/fix"); err != nil {
+		t.Fatal(err)
+	}
+	if !te.waitTaskStatus("m/fix", "first", StatusRunning, 10*time.Second) {
+		t.Fatal("task 'first' did not start")
+	}
+	vars, err := te.eng.EnsureVars("m/fix")
+	if err != nil || vars["NAME"] == "" {
+		t.Fatalf("vars = %v, %v", vars, err)
+	}
+	name := vars["NAME"]
+	mustWrite(t, filepath.Join(dir, name+".done"), "x")
+	if !te.waitTaskStatus("m/fix", "first", StatusCompleted, 10*time.Second) {
+		t.Fatal("task 'first' did not complete")
+	}
+
+	// The student breaks the scene and starts over.
+	_ = os.Remove(filepath.Join(dir, name+".txt"))
+	_ = os.Remove(filepath.Join(dir, name+".done"))
+	if err := te.eng.StartOverUnit("m/fix"); err != nil {
+		t.Fatal(err)
+	}
+	if !te.waitTaskStatus("m/fix", "first", StatusRunning, 10*time.Second) {
+		t.Fatal("task 'first' did not restart after the start over")
+	}
+	if _, err := os.Stat(filepath.Join(dir, name+".txt")); err != nil {
+		t.Errorf("init did not rebuild the scene: %v", err)
+	}
+	after, _ := te.eng.EnsureVars("m/fix")
+	if after["NAME"] != name {
+		t.Errorf("start over re-drew NAME: %q -> %q", name, after["NAME"])
+	}
+
+	mustWrite(t, filepath.Join(dir, name+".done"), "x")
+	mustWrite(t, filepath.Join(dir, name+".second"), "x")
+	if !te.waitEvent("unit", "m/fix", "completed", 10*time.Second) {
+		t.Fatal("unit did not complete after the start over")
+	}
+	if err := te.eng.StartOverUnit("m/fix"); !errors.Is(err, ErrUnitCompleted) {
+		t.Errorf("start over of a completed unit: %v, want ErrUnitCompleted", err)
+	}
+	if err := te.eng.StartOverUnit("m/plain"); !errors.Is(err, ErrStartOverDisabled) {
+		t.Errorf("start over without startOver: true: %v, want ErrStartOverDisabled", err)
+	}
+}
+
 func TestStatePersistsAcrossEngineRestart(t *testing.T) {
 	units := map[string]string{"010.m/010.make-file/unit.md": fileUnit}
 	te := newTestEnv(t, units)

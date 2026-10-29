@@ -469,6 +469,60 @@ func (e *Engine) ResetUnit(id string) error {
 	return e.ActivateUnit(id)
 }
 
+// ErrStartOverDisabled is returned when a student starts over a unit that
+// does not opt in with `startOver: true`.
+var ErrStartOverDisabled = errors.New("unit does not offer a start over")
+
+// ErrUnitCompleted is returned when a completed unit is started over: a
+// student-facing reset never undoes progress.
+var ErrUnitCompleted = errors.New("unit is already completed")
+
+// StartOverUnit is the student-facing reset of a unit that opts in with
+// `startOver: true`: it forgets the unit's progress and re-activates it, so
+// its init rebuilds the scene. Unlike ResetUnit (the authoring reset), it
+// keeps the unit's drawn `vars:` - the student restarts the same exercise,
+// with the names and values the text already showed - and it refuses
+// completed, locked, and unsupported units. Task vars published with
+// set_var are cleared, as on any reset: the restarted checks publish them
+// again.
+func (e *Engine) StartOverUnit(id string) error {
+	u := e.Path.Unit(id)
+	if u == nil {
+		return fmt.Errorf("unknown unit %q", id)
+	}
+	if !u.Front.StartOver {
+		return fmt.Errorf("unit %q: %w", id, ErrStartOverDisabled)
+	}
+	if u.Unsupported {
+		return fmt.Errorf("unit %q: %w", id, ErrUnitUnsupported)
+	}
+	if e.UnitLocked(id) {
+		return fmt.Errorf("unit %q: %w", id, ErrUnitLocked)
+	}
+	var completed bool
+	e.Store.View(func(d *state.Data) {
+		if us, ok := d.Units[id]; ok {
+			completed = us.Status == state.UnitCompleted
+		}
+	})
+	if completed {
+		return fmt.Errorf("unit %q: %w", id, ErrUnitCompleted)
+	}
+	e.mu.Lock()
+	if e.activeUnit == id {
+		e.stopActiveLocked()
+	}
+	e.mu.Unlock()
+	declared := func(name string) bool {
+		_, ok := u.Front.Vars[name]
+		return ok
+	}
+	if err := e.Store.RestartUnit(id, declared); err != nil {
+		return err
+	}
+	return e.ActivateUnit(id)
+}
+
 // MarkModuleSeen records a module intro scene as viewed.
 func (e *Engine) MarkModuleSeen(id string) error {
 	return e.Store.Update(func(d *state.Data) {

@@ -97,7 +97,8 @@
           automatically. There is no "check" button: the moment the goal is
           reached, the spinner turns into a green check mark.</li>
         <li><b>Stuck?</b> Keep trying - context-aware hints show up in the task
-          box when the checks see you struggling.</li>
+          box when the checks see you struggling. If you broke an exercise's
+          setup, its <b>Start over</b> button (where offered) sets it up again.</li>
       </ol>
       <p>The bar under the header tracks your overall progress. With
         <b>auto-advance</b> on, the next exercise opens by itself once you finish
@@ -181,6 +182,12 @@
     <button class="activate-btn">Start this exercise</button>
     <span class="activate-note">You jumped ahead - the scene is set up and the
       checks go live when you start it.</span>
+  </div>
+</template>
+
+<template id="tpl-start-over">
+  <div class="start-over">
+    <button class="start-over-btn" type="button" title="Set the exercise up again if its scene got broken">Start over</button>
   </div>
 </template>
 

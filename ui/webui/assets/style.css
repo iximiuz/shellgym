@@ -603,6 +603,25 @@ button { font: inherit; color: inherit; }
 .activate-btn:active { transform: none; }
 .activate-note { color: var(--faint); font-size: 13.5px; }
 
+/* ---------- start over (units with startOver: true) ---------- */
+/* a quiet secondary control, only while the unit is in progress: never on
+   solved, locked, unstarted, or unsupported units. One click starts over
+   (no confirmation), so it keeps its distance from the text, the hint
+   toggles, and the task boxes: bottom right, below a gap. */
+.start-over {
+  display: flex; justify-content: flex-end;
+  margin: 32px 0 0;
+}
+.scene:is(.done, .locked, .unstarted, .unsupported) .start-over { display: none; }
+.start-over-btn {
+  background: transparent; color: var(--muted);
+  border: 1px solid var(--line-strong); border-radius: 8px;
+  font: inherit; font-size: 13.5px; padding: 5px 12px; cursor: pointer;
+  transition: color .15s, border-color .15s;
+}
+.start-over-btn:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+.start-over-btn:disabled { opacity: .6; cursor: progress; }
+
 /* ---------- init failure banner ---------- */
 .init-error {
   background: var(--err-soft); border: 1px solid var(--err-line);

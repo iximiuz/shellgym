@@ -65,10 +65,15 @@ type Frontmatter struct {
 	// Variant ("key=value") makes the unit part of a variant of the path:
 	// for every key one value is drawn per attempt, and units carrying
 	// another value of that key are hidden. See Path.ApplyVariants.
-	Variant string             `yaml:"variant"`
-	Vars    map[string]VarSpec `yaml:"vars"`
-	Init    []InitTask         `yaml:"init"`
-	Tasks   map[string]*Task   `yaml:"tasks"`
+	Variant string `yaml:"variant"`
+	// StartOver gives the student a "Start over" button on the unit while
+	// it is in progress: it forgets the unit's progress and re-runs its
+	// init with the same vars (see engine.StartOverUnit). For scenes the
+	// student can break beyond repair.
+	StartOver bool               `yaml:"startOver"`
+	Vars      map[string]VarSpec `yaml:"vars"`
+	Init      []InitTask         `yaml:"init"`
+	Tasks     map[string]*Task   `yaml:"tasks"`
 }
 
 // Unit is a single scene with one or more tasks.

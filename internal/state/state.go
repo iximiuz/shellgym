@@ -249,9 +249,30 @@ func (s *Store) RunTasks(unitID string) []string {
 
 // DropUnit forgets a unit entirely (progress + run history).
 func (s *Store) DropUnit(unitID string) error {
+	return s.RestartUnit(unitID, nil)
+}
+
+// RestartUnit forgets a unit's progress and run history like DropUnit, but
+// keeps the vars whose names keep accepts (nil keeps none): the unit starts
+// from scratch with those values already drawn.
+func (s *Store) RestartUnit(unitID string, keep func(name string) bool) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	var vars map[string]string
+	if us, ok := s.data.Units[unitID]; ok && keep != nil {
+		for k, v := range us.Vars {
+			if keep(k) {
+				if vars == nil {
+					vars = map[string]string{}
+				}
+				vars[k] = v
+			}
+		}
+	}
 	delete(s.data.Units, unitID)
+	if vars != nil {
+		s.data.Units[unitID] = &UnitState{Status: UnitPending, Vars: vars}
+	}
 	if err := os.RemoveAll(filepath.Join(s.dir, "runs", slug(unitID))); err != nil {
 		return err
 	}

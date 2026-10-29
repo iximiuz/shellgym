@@ -55,6 +55,7 @@ func New(addr string, eng *engine.Engine, b *bus.Bus, opts ...Options) *Server {
 	m.HandleFunc("GET /api/unit/{id...}", s.handleUnit)
 	m.HandleFunc("POST /api/activate/{id...}", s.handleActivate)
 	m.HandleFunc("POST /api/reset/{id...}", s.handleReset)
+	m.HandleFunc("POST /api/start-over/{id...}", s.handleStartOver)
 	m.HandleFunc("POST /api/module-seen/{id...}", s.handleModuleSeen)
 	m.HandleFunc("GET /api/module/{id...}", s.handleModule)
 	m.HandleFunc("GET /api/debug/{id...}", s.handleDebug)
@@ -190,6 +191,9 @@ type unitJSON struct {
 	// value was not drawn for this attempt (see sceneJSON).
 	Variant string `json:"variant,omitempty"`
 	Hidden  bool   `json:"hidden,omitempty"`
+	// StartOver makes the UI offer the student-facing "Start over" button
+	// (POST /api/start-over) while the unit is in progress.
+	StartOver bool `json:"startOver,omitempty"`
 }
 
 func (s *Server) handleUnit(w http.ResponseWriter, r *http.Request) {
@@ -224,7 +228,7 @@ func (s *Server) handleUnit(w http.ResponseWriter, r *http.Request) {
 	out := unitJSON{ID: u.ID, Title: title, Module: u.ModuleID, HTML: html, Status: "pending",
 		Locked: s.Engine.UnitLocked(id), Vars: vars,
 		Unsupported: u.Unsupported, MissingCaps: u.MissingCaps,
-		Variant: u.Variant.String(), Hidden: u.Hidden}
+		Variant: u.Variant.String(), Hidden: u.Hidden, StartOver: u.Front.StartOver}
 	s.Engine.Store.View(func(d *state.Data) {
 		us := d.Unit(id)
 		out.Status = string(us.Status)
@@ -278,6 +282,30 @@ func (s *Server) handleReset(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if err := s.Engine.ResetUnit(id); err != nil {
 		http.Error(w, err.Error(), 400)
+		return
+	}
+	writeJSON(w, map[string]string{"ok": "true"})
+}
+
+// handleStartOver is the student-facing reset (the UI's "Start over"
+// button): unlike /api/reset, it works only on units with `startOver:
+// true`, never undoes a completed unit, and keeps the unit's vars.
+func (s *Server) handleStartOver(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if s.Engine.Path.Unit(id) == nil {
+		http.Error(w, "unknown unit", 404)
+		return
+	}
+	if err := s.Engine.StartOverUnit(id); err != nil {
+		code := 400
+		switch {
+		case errors.Is(err, engine.ErrStartOverDisabled):
+			code = 403
+		case errors.Is(err, engine.ErrUnitCompleted), errors.Is(err, engine.ErrUnitLocked),
+			errors.Is(err, engine.ErrUnitUnsupported):
+			code = 409
+		}
+		http.Error(w, err.Error(), code)
 		return
 	}
 	writeJSON(w, map[string]string{"ok": "true"})

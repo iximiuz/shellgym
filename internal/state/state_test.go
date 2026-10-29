@@ -109,3 +109,50 @@ func TestRunHistoryJSONL(t *testing.T) {
 		t.Errorf("progress.json unexpectedly large: %d bytes", len(raw))
 	}
 }
+
+func TestRestartUnitKeepsSelectedVars(t *testing.T) {
+	dir := t.TempDir()
+	s, err := Open(dir, "p1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = s.Update(func(d *Data) {
+		u := d.Unit("m/u")
+		u.Status = UnitActive
+		u.InitDone = true
+		u.Vars = map[string]string{"DRAWN": "alpha", "PUBLISHED": "4242"}
+		u.Task("t").Status = "completed"
+	})
+	if err := s.AddRun("m/u", "t", TaskRun{Kind: "run"}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.RestartUnit("m/u", func(name string) bool { return name == "DRAWN" }); err != nil {
+		t.Fatal(err)
+	}
+	s.View(func(d *Data) {
+		u, ok := d.Units["m/u"]
+		if !ok {
+			t.Fatal("unit record dropped together with its kept vars")
+		}
+		if u.Status != UnitPending || u.InitDone || len(u.Tasks) != 0 {
+			t.Errorf("progress survived the restart: %+v", u)
+		}
+		if len(u.Vars) != 1 || u.Vars["DRAWN"] != "alpha" {
+			t.Errorf("vars = %v, want only DRAWN=alpha", u.Vars)
+		}
+	})
+	if runs := s.Runs("m/u", "t"); len(runs) != 0 {
+		t.Errorf("run history survived the restart: %d runs", len(runs))
+	}
+
+	// Nothing to keep: the unit is forgotten entirely, as by DropUnit.
+	if err := s.RestartUnit("m/u", func(string) bool { return false }); err != nil {
+		t.Fatal(err)
+	}
+	s.View(func(d *Data) {
+		if _, ok := d.Units["m/u"]; ok {
+			t.Error("unit record kept with no vars to keep")
+		}
+	})
+}

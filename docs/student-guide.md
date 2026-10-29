@@ -32,6 +32,14 @@ to unsatisfied if you undo the state before the whole exercise completes.
 Dynamic hints point at what is wrong. A folded hint may show the full
 solution, so give the exercise a real try before you open it.
 
+## Starting over
+
+Some exercises have a **Start over** button under their text. If you
+broke the exercise's setup (deleted a file it needs, for example), the
+button sets the exercise up again from the start. The names and values
+in the text stay the same. The button is gone once the exercise is
+done.
+
 ## Moving around
 
 When the browser page has the focus:

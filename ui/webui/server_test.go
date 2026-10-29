@@ -68,9 +68,11 @@ The future.
 Waiting...
 ::
 `)
-	// An independent unit: no deps, so it is startable out of order.
+	// An independent unit: no deps, so it is startable out of order. It
+	// offers the student-facing start over.
 	write("010.mod/030.unit-c/unit.md", `---
 title: Unit C
+startOver: true
 tasks:
   t1:
     check: |
@@ -337,6 +339,64 @@ func TestUnitEndpointInterpolatesVars(t *testing.T) {
 	}
 	if len(out.Tasks) != 1 || out.Tasks[0].Name != "t1" || out.Tasks[0].Status != "pending" {
 		t.Errorf("tasks: %+v", out.Tasks)
+	}
+}
+
+// The student-facing start over is offered (and accepted) only for units
+// with startOver: true, and never for a completed unit.
+func TestStartOverEndpoint(t *testing.T) {
+	s, _, _ := testServer(t)
+	ts := httptest.NewServer(s.mux)
+	defer ts.Close()
+
+	unit := func(id string) (out struct {
+		Status    string `json:"status"`
+		StartOver bool   `json:"startOver"`
+	}) {
+		t.Helper()
+		resp, err := http.Get(ts.URL + "/api/unit/" + id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+			t.Fatal(err)
+		}
+		return out
+	}
+	startOver := func(id string) int {
+		t.Helper()
+		resp, err := http.Post(ts.URL+"/api/start-over/"+id, "application/json", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		return resp.StatusCode
+	}
+
+	if !unit("mod/unit-c").StartOver || unit("mod/unit-a").StartOver {
+		t.Error("startOver flag not reported as declared")
+	}
+	if code := startOver("mod/unit-a"); code != 403 {
+		t.Errorf("start over of a unit without startOver: got %d, want 403", code)
+	}
+	if code := startOver("mod/no-such-unit"); code != 404 {
+		t.Errorf("start over of an unknown unit: got %d, want 404", code)
+	}
+	if code := startOver("mod/unit-c"); code != 200 {
+		t.Fatalf("start over of unit-c: got %d, want 200", code)
+	}
+	// unit-c's only check is `true`: the start over activated it, so it
+	// completes at once - and a completed unit cannot be started over.
+	deadline := time.Now().Add(10 * time.Second)
+	for unit("mod/unit-c").Status != "completed" {
+		if time.Now().After(deadline) {
+			t.Fatal("unit-c did not complete after the start over")
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if code := startOver("mod/unit-c"); code != 409 {
+		t.Errorf("start over of a completed unit: got %d, want 409", code)
 	}
 }
 
