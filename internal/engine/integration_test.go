@@ -497,6 +497,47 @@ func TestActivationAnnouncesFreshTaskStatuses(t *testing.T) {
 	}
 }
 
+const slowInitUnit = `---
+title: Wait for the scene
+init:
+  - name: prep
+    run: |
+      mkdir -p /tmp/shellgym-slow-init
+      sleep 2
+tasks:
+  made:
+    check: |
+      wait_file /tmp/shellgym-slow-init/made-it.txt
+---
+::task{name="made"}
+Waiting...
+::
+`
+
+// A reset while the unit's init still runs cancels that init. The cancelled
+// activation must not clear the active marker of the activation the reset
+// starts: its tasks would stay pending, and a correct answer would be
+// ignored until the student activated the unit again.
+func TestResetDuringInitKeepsUnitActive(t *testing.T) {
+	te := newTestEnv(t, map[string]string{"010.m/010.slow/unit.md": slowInitUnit})
+	defer os.RemoveAll("/tmp/shellgym-slow-init")
+
+	if err := te.eng.ActivateUnit("m/slow"); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(300 * time.Millisecond) // the first init is in its sleep
+	if err := te.eng.ResetUnit("m/slow"); err != nil {
+		t.Fatal(err)
+	}
+	if !te.waitTaskStatus("m/slow", "made", StatusRunning, 10*time.Second) {
+		t.Fatal("task did not start after a reset during init")
+	}
+	mustWrite(t, "/tmp/shellgym-slow-init/made-it.txt", "x")
+	if !te.waitEvent("unit", "m/slow", "completed", 10*time.Second) {
+		t.Fatal("unit did not complete after a reset during init")
+	}
+}
+
 func TestStatePersistsAcrossEngineRestart(t *testing.T) {
 	units := map[string]string{"010.m/010.make-file/unit.md": fileUnit}
 	te := newTestEnv(t, units)

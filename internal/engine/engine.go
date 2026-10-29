@@ -373,9 +373,14 @@ func (e *Engine) ActivateUnit(id string) error {
 			if !e.runInit(ctx, u, vars) {
 				// Init failed: tasks are not started (they'd misfire on a
 				// half-built environment). Clear the active marker so a
-				// later activate retries the init from scratch.
+				// later activate retries the init from scratch - unless
+				// this activation was superseded (its init was cancelled
+				// by a reset or another activation): the marker belongs to
+				// the newer activation then, possibly of this same unit,
+				// and clearing it would leave that one's tasks pending
+				// forever (setStatus ignores a unit that is not active).
 				e.mu.Lock()
-				if e.activeUnit == u.ID {
+				if ctx.Err() == nil && e.activeUnit == u.ID {
 					e.activeUnit = ""
 				}
 				e.mu.Unlock()
