@@ -159,7 +159,8 @@ async function buildUnitScene(meta) {
     if (ord) $('.kicker-pos', el).textContent = `exercise ${ord} of ${state.path.total}`;
   }
   $('.scene-title', el).textContent = unit.title;
-  // unit.html is server-rendered trusted content (the author's markdown)
+  // unit.html is the author's markdown, server-rendered and sanitized
+  // (no scripts or event handlers - see content.RenderMarkdown)
   $('.scene-body', el).innerHTML = unit.html;
   state.unitTasks = unit.tasks || [];
   state.unitVariant = unit.variant || '';

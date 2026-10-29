@@ -186,3 +186,72 @@ func TestRenderMDCBlockAttrs(t *testing.T) {
 		t.Errorf("colon-key attrs not parsed: %s", html)
 	}
 }
+
+func TestAuthorHTMLCannotRunScript(t *testing.T) {
+	src := "Intro.\n\n" +
+		"<script>alert('s1')</script>\n\n" +
+		`<button class="gym-reset" onclick="fetch('/api/reset/m/u',{method:'POST'})">Reset</button>` + "\n\n" +
+		`<img src="x.png" onerror="alert('s2')">` + "\n\n" +
+		"[plain](javascript:alert('s3')) and <a href=\"javascript:alert('s4')\">raw</a>\n\n" +
+		`<iframe src="https://example.com/"></iframe><object data="x.swf"></object>` + "\n\n" +
+		`<svg onload="alert('s5')"><script>alert('s6')</script></svg>` + "\n\n" +
+		`<form action="https://example.com/"><input name="q"></form>` + "\n\n" +
+		`<a href="https://example.com/" target="_blank" rel="opener">tab</a>` + "\n\n" +
+		"<style>.x { color: red; }</style><script>alert('s7')</script>\n\n" +
+		"::hint{title=\"Stuck?\"}\n<div onmouseover=\"alert('s8')\">hover</div>\n::\n"
+	html, err := RenderUnit(src, "/unit-assets/m/u/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, bad := range []string{
+		"alert(", "<script", "onclick", "onerror", "onload", "onmouseover",
+		"javascript:", "<iframe", "<object", "<form", `rel="opener"`,
+	} {
+		if strings.Contains(html, bad) {
+			t.Errorf("sanitized output contains %q:\n%s", bad, html)
+		}
+	}
+	// The hint box's own bulb icon is the only SVG left.
+	if n := strings.Count(html, "<svg"); n != strings.Count(html, `<svg class="hint-bulb"`) {
+		t.Errorf("author SVG survived:\n%s", html)
+	}
+	for _, want := range []string{"Intro.", "Reset", "hover", "tab", "hint-box"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("sanitized output lost %q:\n%s", want, html)
+		}
+	}
+}
+
+// Published paths use raw HTML for formatting: <pre><code> blocks and
+// <span> highlights, plus <style> blocks that show the solution matching
+// the drawn variant (data-* attributes). All of it must survive.
+func TestAuthorHTMLKeepsFormatting(t *testing.T) {
+	src := "<style>\n.sol { display: none; }\n.scene-body:has(.sol) > .sol[data-draw=\"labels\"] { display: block; }\n</style>\n\n" +
+		"<pre class=\"sol\" data-draw=\"labels\"><code>kubectl apply -f - &lt;&lt;'EOF'\n" +
+		"  name: <span class=\"sol-v\">web</span>\nEOF\n</code></pre>\n\n" +
+		"```bash\nls -l\n```\n\n" +
+		"| Left | Right |\n|:-----|------:|\n| a | b |\n\n" +
+		"- [x] done\n- [ ] todo\n\n" +
+		"A <kbd>Ctrl</kbd>-<kbd>C</kbd> and a [link](https://example.com/).\n\n" +
+		"![pic](pic.png)\n"
+	html, err := RenderUnit(src, "/unit-assets/m/u/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"<style>\n.sol { display: none; }\n.scene-body:has(.sol) > .sol[data-draw=\"labels\"] { display: block; }\n</style>",
+		`<pre class="sol" data-draw="labels"><code>kubectl apply -f - &lt;&lt;`,
+		`<span class="sol-v">web</span>`,
+		`<code class="language-bash">`,
+		`style="text-align: left"`,
+		`style="text-align: right"`,
+		`type="checkbox"`,
+		`<kbd>Ctrl</kbd>`,
+		`href="https://example.com/" target="_blank" rel="noopener"`,
+		`src="/unit-assets/m/u/pic.png"`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("sanitized output lost %q:\n%s", want, html)
+		}
+	}
+}

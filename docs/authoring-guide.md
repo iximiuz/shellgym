@@ -454,6 +454,10 @@ Press `Tab` after a few letters of a path and the shell completes it.
 - `::image` and plain `![...](file.png)` serve unit-local files.
 - `${VAR}` interpolates everywhere: body, titles, component text.
 - Nested components use identical `::` fences.
+- Raw HTML works for formatting (`<pre><code>`, `<span class>`, `<kbd>`,
+  `<style>`, `data-*` attributes). Anything that can run script is
+  stripped: `<script>`, `on*` handlers, `javascript:` links, iframes,
+  forms, and inline SVG.
 
 Module intros (`module.md`) are plain markdown scenes; the first `#`
 heading becomes the module title.

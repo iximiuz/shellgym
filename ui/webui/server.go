@@ -437,6 +437,11 @@ func (s *Server) handleUnitAsset(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found", 404)
 		return
 	}
+	// Assets are author files served from the UI's origin. The sandbox keeps
+	// an .html or .svg asset opened directly from running script against the
+	// daemon API; <img> rendering is unaffected.
+	w.Header().Set("Content-Security-Policy", "sandbox")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	http.ServeFile(w, r, full)
 }
 

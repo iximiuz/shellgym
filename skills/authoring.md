@@ -470,6 +470,10 @@ Directories are entered with a two-letter command.
 - `::image` and plain `![...](file.png)` serve unit-local files.
 - `${VAR}` interpolates in the body, titles, and component text.
 - Nested components use identical `::` fences.
+- Raw HTML works for formatting (`<pre><code>`, `<span class>`, `<kbd>`,
+  `<style>`, `data-*` attributes). Anything that can run script is
+  stripped: `<script>`, `on*` handlers, `javascript:` links, iframes,
+  forms, and inline SVG.
 
 ## Authoring guidelines
 

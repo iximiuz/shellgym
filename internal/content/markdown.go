@@ -9,6 +9,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/microcosm-cc/bluemonday"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
@@ -37,6 +38,8 @@ import (
 // Components are pre-processed into HTML wrappers before goldmark runs, with
 // their inner section markdown rendered recursively.
 
+// Raw HTML in the markdown passes goldmark (WithUnsafe) and is then filtered
+// by authorHTML - see RenderMarkdown.
 var md = goldmark.New(
 	goldmark.WithExtensions(extension.GFM),
 	goldmark.WithParserOptions(parser.WithASTTransformers(
@@ -44,6 +47,35 @@ var md = goldmark.New(
 	)),
 	goldmark.WithRendererOptions(ghtml.WithUnsafe()),
 )
+
+// authorHTML is the allowlist for HTML rendered from an author's markdown.
+// The UI inserts it into the student's gym page, which talks to the daemon's
+// unauthenticated API, so nothing that can run script survives: <script>,
+// on* handlers, javascript: URLs, <iframe>/<object>/<form>, inline SVG.
+// Formatting HTML stays - paths use <pre><code>, <span class>, data-*
+// attributes, and <style> blocks (CSS cannot run script) for variant-specific
+// text.
+var authorHTML = func() *bluemonday.Policy {
+	p := bluemonday.UGCPolicy()
+	p.AllowElements("kbd")
+	p.AllowAttrs("class").Globally()
+	p.AllowDataAttributes()
+	p.AllowDataURIImages()
+	// newTabLinks output; rel=opener would hand window.opener back.
+	p.RequireNoFollowOnLinks(false)
+	p.AllowAttrs("target").Matching(regexp.MustCompile(`^_blank$`)).OnElements("a")
+	p.AllowAttrs("rel").Matching(regexp.MustCompile(`^noopener$`)).OnElements("a")
+	// GFM task list items and table cell alignment.
+	p.AllowAttrs("type").Matching(regexp.MustCompile(`^checkbox$`)).OnElements("input")
+	p.AllowAttrs("checked", "disabled").OnElements("input")
+	p.AllowStyles("text-align").OnElements("th", "td")
+	// AllowUnsafe only lets <style> be declared below; <script> stays out of
+	// the allowlist, so it is dropped together with its content.
+	p.AllowUnsafe(true)
+	p.AllowElements("style")
+	p.AllowElementsContent("style")
+	return p
+}()
 
 // newTabLinks makes every link (and GFM autolink) open in a new tab: the unit
 // page is the student's workspace (terminal + live task state), and navigating
@@ -65,13 +97,16 @@ func (newTabLinks) Transform(doc *ast.Document, _ text.Reader, _ parser.Context)
 	})
 }
 
-// RenderMarkdown renders plain markdown (no components) to HTML.
+// RenderMarkdown renders plain markdown (no components) to HTML, sanitized
+// with authorHTML. Every piece of author markdown (plain text, component
+// sections, module intros) goes through here; the component wrappers around
+// it are built by this package with escaped attributes.
 func RenderMarkdown(src string) (string, error) {
 	var buf bytes.Buffer
 	if err := md.Convert([]byte(src), &buf); err != nil {
 		return "", err
 	}
-	return buf.String(), nil
+	return authorHTML.Sanitize(buf.String()), nil
 }
 
 var (
