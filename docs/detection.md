@@ -45,6 +45,14 @@ pin the check to one specific shell - `wait_cwd` prints the matched
 shell's PID on success, which is how a unit hands "the shell that did
 it" over to a dependent unit (via a `set_var` task var).
 
+Both also accept `--active`, which picks the shell the student is using
+now. The `/shells` endpoint marks that shell with `"active": true`,
+chosen among the live shells: the shell that read the newest line in
+the line ring (readline capability), else the parent of the newest
+student exec event in the exec ring, else the most recently started
+shell. The rings are scanned from the newest event, regardless of the
+unit's horizon, on every `/shells` request.
+
 The scan runs on demand per check evaluation - there is no shell
 tracking state to go stale.
 

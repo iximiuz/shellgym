@@ -48,15 +48,17 @@ check: |
 
 ## Shell state
 
-### `shell_cwd [shell-pid]`
+### `shell_cwd [--active | shell-pid]`
 
 Prints the current working directory of the interactive shell of the observed user -
 if no shell PID provided, the **most recently started** shell is used.
+With `--active`, the shell the student is using now is used (see
+[The active shell](#the-active-shell)).
 Non-blocking. Exits 2 if no (matching) shell is found. Typical use is inside `hint:` scripts:
 
 ```yaml
 hint: |
-  echo "Your shell is still in $(shell_cwd)."
+  echo "Your shell is still in $(shell_cwd --active)."
 ```
 
 ### `event_seq`
@@ -77,7 +79,7 @@ Lists all observed interactive shells, one per line, tab-separated:
 `PID exe tty cwd`, most recently started first. A debugging aid; rarely
 needed in real checks.
 
-### `wait_cwd [shell-pid] <path-or-regex>`
+### `wait_cwd [--active | shell-pid] <path-or-regex>`
 
 Waits until an interactive shell of the observed user has the given
 working directory. Which shell counts is picked by the optional first
@@ -85,6 +87,10 @@ argument:
 
 - `wait_cwd <path>` - **any** open shell may match (the student may
   legitimately have several terminals open);
+- `wait_cwd --active <path>` - only the shell the student is using
+  **now** counts (see [The active shell](#the-active-shell)). The
+  choice is re-evaluated on every poll, so the check follows the
+  student when they switch terminals;
 - `wait_cwd <shell-pid> <path>` - only the shell with that **specific**
   PID counts.
 
@@ -115,6 +121,43 @@ check: |
 # dependent unit (needs: [earlier-unit])
 check: |
   wait_cwd "$TRAVELER" "$GYM_USER_HOME"
+```
+
+Pin a PID only when the unit is about two different shells (a shell
+started inside another one, for example). To make several steps of one
+unit judge "the student's shell", use `--active` in each step instead:
+a PID captured by an any-shell `wait_cwd` can belong to an idle
+terminal that happened to stand in the directory first, and a pinned
+check then waits forever while the student works in another terminal.
+
+### The active shell
+
+`wait_cwd --active` and `shell_cwd --active` look at the shell the
+student is using now, picked among the live shells in this order:
+
+1. the shell that read the most recent command line (needs the
+   `readline` capability - the only source that sees builtins such as
+   `cd`);
+2. the shell that started the most recent program (the program's
+   parent process);
+3. the most recently started shell.
+
+A closed terminal never counts, so its successor takes over. Without
+the `readline` capability, a terminal where the student has only typed
+builtins (`cd`, `pwd`, `echo`) does not become active until it starts a
+program. Units whose steps are mostly `cd` should declare
+`requires: [readline]`.
+
+```yaml
+tasks:
+  at_start:
+    check: |
+      wait_cwd --active "$GYM_USER_HOME/projects"
+  arrived:
+    needs: [at_start]
+    check: |
+      wait_cwd --active "$GYM_USER_HOME/projects/reports" >/dev/null || exit 1
+      wait_line --latest '^cd( +.*)?$'
 ```
 
 ## Command execution

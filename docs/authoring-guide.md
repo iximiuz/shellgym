@@ -168,8 +168,8 @@ listed in the unit's `needs:`.
 
 **Task vars.** A check can also publish a var at runtime with the
 `set_var <NAME> <value>` built-in - for values that only exist once the
-student acts, like the PID of the shell that completed a step (see
-`wait_cwd` in [checks.md](checks.md)). Task vars join the unit's vars:
+student acts (see [Task vars](checks.md#task-vars) in checks.md). Task
+vars join the unit's vars:
 later runs of the unit's own scripts and the scripts of dependent
 (`needs:`) units see them in the environment. They are the way to pass
 values between tasks and units - never stash such values in files; use

@@ -18,6 +18,10 @@ type ShellInfo struct {
 	TTY     string `json:"tty"`
 	Cwd     string `json:"cwd"`
 	StartNs int64  `json:"-"` // process start time (jiffies), for "most recent"
+	// Active marks the shell the student is using now (see
+	// checkAPI.activeShell). Set by the check API only; FindShells leaves
+	// it false.
+	Active bool `json:"active,omitempty"`
 }
 
 var shellNames = map[string]bool{

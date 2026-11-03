@@ -307,3 +307,53 @@ func TestEventSeqMarkOrdersExecAndLineEvents(t *testing.T) {
 		t.Fatalf("the later line should match above the mark: %+v (mark %d)", out, mark.Seq)
 	}
 }
+
+// The --active selector follows the shell the student types into: the
+// live shell with the latest command line wins, then the parent of the
+// latest program, then the most recently started shell. Dead shells and
+// foreign or tty-less activity never count.
+func TestActiveShellSelection(t *testing.T) {
+	lines := NewLineWatcher()
+	lines.Source = "uprobe"
+	execs := NewExecWatcher()
+	api := &checkAPI{lines: lines, watcher: execs, shellUID: 1000}
+	// FindShells order: the most recently started shell first.
+	shells := []ShellInfo{{PID: 30}, {PID: 20}, {PID: 10}}
+
+	if got := api.activeShell(nil); got != 0 {
+		t.Fatalf("no shells: want 0, got %d", got)
+	}
+	if got := api.activeShell(shells); got != 30 {
+		t.Fatalf("no activity: want the newest shell 30, got %d", got)
+	}
+
+	execs.publish(ExecEvent{PID: 101, PPID: 10, UID: 1000, TTYNr: 3, Argv: []string{"ls"}})
+	if got := api.activeShell(shells); got != 10 {
+		t.Fatalf("exec activity: want the parent shell 10, got %d", got)
+	}
+
+	lines.publish(LineEvent{PID: 20, UID: 1000, TTYNr: 3, Line: "cd /tmp"})
+	execs.publish(ExecEvent{PID: 102, PPID: 10, UID: 1000, TTYNr: 3, Argv: []string{"ls"}})
+	if got := api.activeShell(shells); got != 20 {
+		t.Fatalf("typed line: want 20 (lines take precedence over execs), got %d", got)
+	}
+
+	// A closed terminal, a foreign user, and a tty-less shell are skipped.
+	lines.publish(LineEvent{PID: 99, UID: 1000, TTYNr: 3, Line: "exit"})
+	lines.publish(LineEvent{PID: 10, UID: 0, TTYNr: 3, Line: "whoami"})
+	lines.publish(LineEvent{PID: 10, UID: 1000, TTYNr: 0, Line: "whoami"})
+	if got := api.activeShell(shells); got != 20 {
+		t.Fatalf("dead/foreign/tty-less lines: want 20, got %d", got)
+	}
+
+	lines.publish(LineEvent{PID: 30, UID: 1000, TTYNr: 3, Line: "pwd"})
+	if got := api.activeShell(shells); got != 30 {
+		t.Fatalf("switched terminals: want 30, got %d", got)
+	}
+
+	// Without the readline capability, exec events decide.
+	lines.Source = ""
+	if got := api.activeShell(shells); got != 10 {
+		t.Fatalf("no readline: want the exec parent 10, got %d", got)
+	}
+}

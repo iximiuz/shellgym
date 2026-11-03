@@ -69,6 +69,13 @@ type testEnv struct {
 
 func newTestEnv(t *testing.T, units map[string]string) *testEnv {
 	t.Helper()
+	return newTestEnvWithLines(t, units, nil)
+}
+
+// newTestEnvWithLines is newTestEnv with a command-line watcher (see
+// startLineWatcher) for checks that depend on typed lines.
+func newTestEnvWithLines(t *testing.T, units map[string]string, lines *LineWatcher) *testEnv {
+	t.Helper()
 	me, err := user.Current()
 	if err != nil {
 		t.Skip("no current user")
@@ -112,6 +119,7 @@ func newTestEnv(t *testing.T, units map[string]string) *testEnv {
 		EdgeTimeout:  5 * time.Second,
 		RestartDelay: 200 * time.Millisecond,
 		HintInterval: 1 * time.Second,
+		Lines:        lines,
 	})
 	t.Cleanup(eng.Shutdown)
 	if err := ServeCheckAPI(sockPath, path.ShellUser, watcher, eng); err != nil {
@@ -340,6 +348,65 @@ func TestEngineTracksSpecificShell(t *testing.T) {
 	sh.Type(fmt.Sprintf("cd %q", me.HomeDir))
 	if !te.waitEvent("unit", "m/return", "completed", 15*time.Second) {
 		t.Fatal("pinned-shell cwd change not detected")
+	}
+}
+
+// Two terminals: shell A stands in the start directory, but the student
+// types into shell B. An any-shell wait_cwd would lock onto A; --active
+// follows B through both steps.
+const activeUnit = `---
+title: Active shell
+init:
+  - name: prep
+    run: |
+      mkdir -p /tmp/shellgym-active-a /tmp/shellgym-active-b
+tasks:
+  start:
+    check: |
+      wait_cwd --active /tmp/shellgym-active-a
+  arrive:
+    needs: [start]
+    check: |
+      wait_cwd --active /tmp/shellgym-active-b
+---
+::task{name="start"}
+Waiting...
+::
+
+::task{name="arrive"}
+Waiting...
+::
+`
+
+func TestEngineFollowsActiveShell(t *testing.T) {
+	lines := startLineWatcher(t)
+	te := newTestEnvWithLines(t, map[string]string{"010.m/010.active/unit.md": activeUnit}, lines)
+	defer os.RemoveAll("/tmp/shellgym-active-a")
+	defer os.RemoveAll("/tmp/shellgym-active-b")
+	if err := os.MkdirAll("/tmp/shellgym-active-a", 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	a := newStudentShell(t)
+	b := newStudentShell(t)
+	a.Type("cd /tmp/shellgym-active-a")
+	b.Type("cd /tmp")
+
+	if err := te.eng.ActivateUnit("m/active"); err != nil {
+		t.Fatal(err)
+	}
+	// Shell A stands in the start directory, but B typed last.
+	if te.waitTaskStatus("m/active", "start", "completed", 2*time.Second) {
+		t.Fatal("start completed on the idle shell A")
+	}
+
+	b.Type("cd /tmp/shellgym-active-a")
+	if !te.waitTaskStatus("m/active", "start", "completed", 10*time.Second) {
+		t.Fatal("start did not follow shell B")
+	}
+	b.Type("cd /tmp/shellgym-active-b")
+	if !te.waitEvent("unit", "m/active", "completed", 10*time.Second) {
+		t.Fatal("arrive did not follow shell B")
 	}
 }
 

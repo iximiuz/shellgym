@@ -57,12 +57,13 @@ func Main(name string, args []string) int {
 	latest := fs.Bool("latest", false, "wait_exec/wait_line only: prefer the newest buffered match over the oldest")
 	cwd := fs.String("cwd", "", "wait_exec/wait_env only: also require the command to have run from this working directory (exact path, or a regex when it contains metacharacters)")
 	after := fs.Uint64("after", 0, "wait_exec/wait_env/wait_line only: only consider events observed after the mark N (as printed by event_seq)")
+	active := fs.Bool("active", false, "wait_cwd/shell_cwd only: look at the shell the student is using now (the one that read the latest command line) instead of any shell or the newest one")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 	args = fs.Args()
 
-	c := &client{sock: os.Getenv("GYM_SOCK"), since: sinceExecSeq(), sinceLine: sinceLineSeq(), argc: *argc, latest: *latest, cwd: *cwd, after: *after}
+	c := &client{sock: os.Getenv("GYM_SOCK"), since: sinceExecSeq(), sinceLine: sinceLineSeq(), argc: *argc, latest: *latest, cwd: *cwd, after: *after, active: *active}
 	deadline := time.Now().Add(365 * 24 * time.Hour)
 	if *timeout > 0 {
 		deadline = time.Now().Add(time.Duration(*timeout * float64(time.Second)))
@@ -100,6 +101,7 @@ type client struct {
 	latest    bool
 	cwd       string // working-directory filter (--cwd) for exec waits
 	after     uint64 // explicit horizon (--after) for exec and line waits, on top of the task's own
+	active    bool   // shell selector (--active) for wait_cwd and shell_cwd
 }
 
 func (c *client) http() *http.Client {
@@ -120,12 +122,21 @@ func (c *client) run(name string, args []string, deadline time.Time) (bool, erro
 	}
 	switch name {
 	case "shell_cwd":
-		if len(args) > 1 {
-			return false, fmt.Errorf("usage: shell_cwd [shell-pid]")
+		if len(args) > 1 || (c.active && len(args) == 1) {
+			return false, fmt.Errorf("usage: shell_cwd [--active | shell-pid]")
 		}
 		shells, err := c.getShells()
 		if err != nil {
 			return false, err
+		}
+		if c.active {
+			for _, s := range shells {
+				if s.Active {
+					fmt.Println(s.Cwd)
+					return true, nil
+				}
+			}
+			return false, fmt.Errorf("no interactive shells found")
 		}
 		if len(args) == 1 {
 			pid, err := parsePID(args[0])
@@ -155,8 +166,8 @@ func (c *client) run(name string, args []string, deadline time.Time) (bool, erro
 		}
 		return true, nil
 	case "wait_cwd":
-		if len(args) < 1 || len(args) > 2 {
-			return false, fmt.Errorf("usage: wait_cwd [shell-pid] <abs-path-or-regex>")
+		if len(args) < 1 || len(args) > 2 || (c.active && len(args) == 2) {
+			return false, fmt.Errorf("usage: wait_cwd [--active | shell-pid] <abs-path-or-regex>")
 		}
 		onlyPID := 0
 		pattern := args[0]
@@ -175,6 +186,11 @@ func (c *client) run(name string, args []string, deadline time.Time) (bool, erro
 			}
 			for _, s := range shells {
 				if onlyPID != 0 && s.PID != onlyPID {
+					continue
+				}
+				// --active re-evaluates on every poll: when the student
+				// switches terminals, the check follows them.
+				if c.active && !s.Active {
 					continue
 				}
 				if PathMatch(pattern, s.Cwd) {
@@ -599,10 +615,11 @@ func setVar(args []string) int {
 // --- daemon API calls -------------------------------------------------------
 
 type shellInfo struct {
-	PID int    `json:"pid"`
-	Exe string `json:"exe"`
-	TTY string `json:"tty"`
-	Cwd string `json:"cwd"`
+	PID    int    `json:"pid"`
+	Exe    string `json:"exe"`
+	TTY    string `json:"tty"`
+	Cwd    string `json:"cwd"`
+	Active bool   `json:"active"`
 }
 
 func (c *client) getShells() ([]shellInfo, error) {

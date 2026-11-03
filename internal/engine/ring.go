@@ -123,6 +123,21 @@ func (r *eventRing[T]) waitMatch(ctx context.Context, after uint64, deadline tim
 	}
 }
 
+// LatestMatch returns the newest buffered event that matches fn, without
+// waiting. It ignores any horizon: it answers "what happened last", not
+// "what happened since the unit started".
+func (r *eventRing[T]) LatestMatch(fn func(T) bool) (T, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for j := len(r.ring) - 1; j >= 0; j-- {
+		if fn(r.ring[j]) {
+			return r.ring[j], true
+		}
+	}
+	var zero T
+	return zero, false
+}
+
 // Snapshot returns events with Seq > after (for debugging APIs).
 func (r *eventRing[T]) Snapshot(after uint64, limit int) []T {
 	r.mu.Lock()

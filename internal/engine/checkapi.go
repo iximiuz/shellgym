@@ -81,7 +81,52 @@ func (a *checkAPI) handleShells(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
+	if pid := a.activeShell(shells); pid != 0 {
+		for i := range shells {
+			shells[i].Active = shells[i].PID == pid
+		}
+	}
 	writeJSON(w, shells)
+}
+
+// activeShell picks the shell the student is using now, among the given
+// live shells (the --active selector of wait_cwd and shell_cwd). A student
+// may have several terminals open, and the one that happens to stand in a
+// directory first is not necessarily the one they type into. In order:
+//
+//  1. the live shell that read the most recent command line (readline
+//     capability) - the only source that sees builtins such as cd;
+//  2. the live shell that started the most recent program (its parent);
+//  3. the most recently started shell.
+//
+// Only live shells count at every step, so a closed or reconnected
+// terminal hands over to the next one. Returns 0 when there are no shells.
+func (a *checkAPI) activeShell(shells []ShellInfo) int {
+	if len(shells) == 0 {
+		return 0
+	}
+	live := make(map[int]bool, len(shells))
+	for _, s := range shells {
+		live[s.PID] = true
+	}
+	student := func(uid, ttyNr int) bool {
+		return (uid == -1 || uid == a.shellUID) && ttyNr != 0
+	}
+	if a.lines != nil && a.lines.Source != "" {
+		if ev, ok := a.lines.LatestMatch(func(ev LineEvent) bool {
+			return student(ev.UID, ev.TTYNr) && live[ev.PID]
+		}); ok {
+			return ev.PID
+		}
+	}
+	if a.watcher != nil {
+		if ev, ok := a.watcher.LatestMatch(func(ev ExecEvent) bool {
+			return student(ev.UID, ev.TTYNr) && live[ev.PPID]
+		}); ok {
+			return ev.PPID
+		}
+	}
+	return shells[0].PID // FindShells sorts the most recently started first
 }
 
 func (a *checkAPI) handleSeq(w http.ResponseWriter, r *http.Request) {

@@ -200,17 +200,22 @@ Rules and behaviors:
 
 ## Built-in checks (on PATH inside check/hint scripts)
 
-- `wait_cwd [shell-pid] <path|regex>` - a student shell has the given
-  working directory (read live from `/proc/<pid>/cwd`): without a PID
-  any open shell may match, with a PID only that specific shell
-  counts. The path is an exact absolute path; if it contains regex
-  metacharacters and compiles, it is matched against the whole path
-  as a regex, auto-anchored `^(...)$`. On success prints the matched
-  shell's PID - publish it as a task var when a later task or a
-  dependent unit must watch the SAME shell:
-  `TRAVELER=$(wait_cwd "/tmp/gym/$D") || exit 1` then
-  `set_var TRAVELER "$TRAVELER"` in one unit, and
-  `wait_cwd "$TRAVELER" "$GYM_USER_HOME"` in the unit that `needs:` it
+- `wait_cwd [--active | shell-pid] <path|regex>` - a student shell has
+  the given working directory (read live from `/proc/<pid>/cwd`):
+  without a selector any open shell may match; with `--active` only the
+  shell the student is using now counts (the live shell that read the
+  latest command line, else the parent of the latest program, else the
+  newest shell - re-evaluated on every poll, so it follows a terminal
+  switch); with a PID only that specific shell counts. The path is an
+  exact absolute path; if it contains regex metacharacters and
+  compiles, it is matched against the whole path as a regex,
+  auto-anchored `^(...)$`. On success prints the matched shell's PID.
+  To judge "the student's shell" across several steps, use `--active`
+  in each step. Pin a PID only when the unit is about two different
+  shells (a shell inside a shell):
+  `OUTER=$(wait_cwd --active "/tmp/gym/$D") || exit 1` then
+  `set_var OUTER "$OUTER"`, and `wait_cwd "$OUTER" "/tmp/gym/$D"` in a
+  later task
 - `wait_exec [--argc N] [--latest] [--cwd <path>] [--after N] <regex>` - the student ran a command
   matching regex (matched against full argv joined with spaces; only
   tty-attached processes of the observed user, executed after the
@@ -283,10 +288,11 @@ Rules and behaviors:
   "resumed" check). Prints the matched state letter on success. Same
   full-cmdline matching (and self-match caveat) as `wait_proc`
 - `wait_port <port>` / `wait_port_free <port>` (listening TCP, v4+v6)
-- `shell_cwd [shell-pid]` - prints the cwd of the most recently started
-  student shell, or of the shell with the given PID (for hint scripts;
-  note: `wait_cwd` accepts a match in any shell, so the two may
-  disagree when several terminals are open)
+- `shell_cwd [--active | shell-pid]` - prints the cwd of the most
+  recently started student shell, of the shell the student is using
+  now (`--active`, same choice as `wait_cwd --active`), or of the shell
+  with the given PID. For hint scripts, prefer `--active`: it names the
+  terminal the student is typing into
 - `shells` - lists all observed shells, one per line (`PID exe tty
   cwd`, most recent first); a debugging aid
 - `hint_exit [task] <message>` - pushes a hint to the UI immediately
@@ -417,10 +423,16 @@ turn green. Both destroy trust in the gym. Mechanisms and gotchas:
   the whole cmdline (`"^(/usr/bin/)?slee[p] ${N}s?\$"`); otherwise
   `wait_proc_gone` never fires and `wait_proc_state` reads the wrapper.
 - **Several shells may be open.** `wait_cwd <path>` matches ANY shell
-  of the student; when later steps must continue in the same one, keep
-  its PID (`P=$(wait_cwd ...)`, `set_var SHELL_PID "$P"`) and pass it
-  as the first argument from then on. `wait_exec` cannot be pinned to a
-  shell - use `--cwd` and `--after` to narrow it.
+  of the student. When steps must judge the shell the student is
+  working in, use `wait_cwd --active` in every step. Do NOT capture a
+  PID from an any-shell `wait_cwd` and pin later steps to it: the
+  capture can grab an idle terminal that stood in the directory first,
+  or a terminal the student abandons, and the pinned step then waits
+  forever while the student's real shell is at the target. Without the
+  `readline` capability, `--active` sees only shells that start
+  programs (`cd` is a builtin), so cd-only units should declare
+  `requires: [readline]`. `wait_exec` cannot be pinned to a shell - use
+  `--cwd` and `--after` to narrow it.
 - **Timing.** Commands typed at human speed are captured reliably;
   processes spawned in machine-speed loops can be missed - never depend
   on catching those. `wait_cwd` and the file checks poll every 200 ms;
