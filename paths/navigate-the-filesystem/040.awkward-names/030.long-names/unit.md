@@ -19,8 +19,7 @@ init:
 tasks:
   at_work:
     check: |
-      P=$(wait_cwd "$GYM_USER_HOME/projects") || exit 1
-      set_var SHELL_PID "$P"
+      wait_cwd "$GYM_USER_HOME/projects"
     hint: |
       echo "Start in ~/projects. From anywhere, cd ~/projects gets you there."
     solve: |
@@ -29,7 +28,7 @@ tasks:
     needs: [at_work]
     timeout: 60
     check: |
-      wait_cwd "$SHELL_PID" "$GYM_USER_HOME/projects/quarterly-financial-statements-2026"
+      wait_cwd "$GYM_USER_HOME/projects/quarterly-financial-statements-2026"
     hint: |
       echo "Type cd q and press Tab. The shell fills in the rest of the name."
     solve: |

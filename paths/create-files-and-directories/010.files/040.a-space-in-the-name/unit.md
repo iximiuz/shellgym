@@ -24,14 +24,16 @@ init:
   - name: clear_targets
     run: |
       N="$GYM_USER_HOME/projects/notes"
-      rm -f "$N/$FIRST" "$N/notes.txt" "$N/$FIRST notes.txt"
+      rm -rf "$N/$FIRST" "$N/notes.txt" "$N/$FIRST notes.txt"
       mkdir -p /run/shellgym-refs
       touch /run/shellgym-refs/a-space-in-the-name
 tasks:
   created:
     timeout: 60
     check: |
-      wait_file "$GYM_USER_HOME/projects/notes/$FIRST notes.txt"
+      F="$GYM_USER_HOME/projects/notes/$FIRST notes.txt"
+      wait_file "$F" >/dev/null || exit 1
+      [ -f "$F" ] || hint_exit "That is a directory. Remove it with rmdir, then create a file with touch."
     hint: |
       N="$GYM_USER_HOME/projects/notes"
       STRAY=$(find "$GYM_USER_HOME" -maxdepth 4 -name notes.txt -newer /run/shellgym-refs/a-space-in-the-name 2>/dev/null | head -n 1)

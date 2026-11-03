@@ -27,8 +27,7 @@ init:
 tasks:
   at_drafts:
     check: |
-      P=$(wait_cwd "$GYM_USER_HOME/projects/reports/drafts") || exit 1
-      set_var SHELL_PID "$P"
+      wait_cwd "$GYM_USER_HOME/projects/reports/drafts"
     hint: |
       echo "Start in ~/projects/reports/drafts. From anywhere, cd ~/projects/reports/drafts gets you there."
     solve: |

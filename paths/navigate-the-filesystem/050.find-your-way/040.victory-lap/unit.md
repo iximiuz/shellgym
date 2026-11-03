@@ -16,8 +16,7 @@ init:
 tasks:
   etc:
     check: |
-      P=$(wait_cwd /etc) || exit 1
-      set_var SHELL_PID "$P"
+      wait_cwd --active /etc
     hint: |
       echo "Move to /etc with its full path."
     solve: |
@@ -26,7 +25,7 @@ tasks:
     needs: [etc]
     timeout: 60
     check: |
-      wait_cwd "$SHELL_PID" "$GYM_USER_HOME/projects/reports/drafts" >/dev/null || exit 1
+      wait_cwd --active "$GYM_USER_HOME/projects/reports/drafts" >/dev/null || exit 1
       LINE=$(wait_line --latest '^cd( +.*)?$') || exit 1
       ARG=$(printf '%s' "$LINE" | sed -E 's/^cd +//')
       case "$ARG" in
@@ -41,7 +40,7 @@ tasks:
     needs: [drafts]
     timeout: 60
     check: |
-      wait_cwd "$SHELL_PID" "$GYM_USER_HOME/projects/reports/final" >/dev/null || exit 1
+      wait_cwd --active "$GYM_USER_HOME/projects/reports/final" >/dev/null || exit 1
       LINE=$(wait_line --latest '^cd( +.*)?$') || exit 1
       ARG=$(printf '%s' "$LINE" | sed -E 's/^cd +//')
       case "$ARG" in
@@ -56,7 +55,7 @@ tasks:
     needs: [final]
     timeout: 60
     check: |
-      wait_cwd "$SHELL_PID" "$GYM_USER_HOME/projects/reports/drafts" >/dev/null || exit 1
+      wait_cwd --active "$GYM_USER_HOME/projects/reports/drafts" >/dev/null || exit 1
       LINE=$(wait_line --latest '^cd( +.*)?$') || exit 1
       ARG=$(printf '%s' "$LINE" | sed -E 's/^cd +//')
       case "$ARG" in
@@ -71,7 +70,7 @@ tasks:
     needs: [back]
     timeout: 60
     check: |
-      wait_cwd "$SHELL_PID" "$GYM_USER_HOME" >/dev/null || exit 1
+      wait_cwd --active "$GYM_USER_HOME" >/dev/null || exit 1
       LINE=$(wait_line --latest '^cd( +.*)?$') || exit 1
       case "$LINE" in
         cd) exit 0 ;;

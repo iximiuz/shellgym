@@ -16,8 +16,7 @@ init:
 tasks:
   at_home:
     check: |
-      P=$(wait_cwd "$GYM_USER_HOME") || exit 1
-      set_var SHELL_PID "$P"
+      wait_cwd --active "$GYM_USER_HOME"
     hint: |
       echo "Start from your home directory. A bare cd takes you there."
     solve: |
@@ -35,7 +34,7 @@ tasks:
     needs: [tried]
     timeout: 60
     check: |
-      wait_cwd "$SHELL_PID" "$GYM_USER_HOME/projects/reports/final" >/dev/null || exit 1
+      wait_cwd --active "$GYM_USER_HOME/projects/reports/final" >/dev/null || exit 1
       LINE=$(wait_line --latest '^cd( +.*)?$') || exit 1
       ARG=$(printf '%s' "$LINE" | sed -E 's/^cd +//')
       case "$ARG" in

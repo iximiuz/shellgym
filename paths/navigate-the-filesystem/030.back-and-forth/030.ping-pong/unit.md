@@ -16,8 +16,7 @@ init:
 tasks:
   first:
     check: |
-      P=$(wait_cwd "$GYM_USER_HOME/projects/archive/2025") || exit 1
-      set_var SHELL_PID "$P"
+      wait_cwd --active "$GYM_USER_HOME/projects/archive/2025"
     hint: |
       echo "Start in ~/projects/archive/2025. From anywhere, cd ~/projects/archive/2025 gets you there."
     solve: |
@@ -26,7 +25,7 @@ tasks:
     needs: [first]
     timeout: 60
     check: |
-      wait_cwd "$SHELL_PID" /var/tmp
+      wait_cwd --active /var/tmp
     hint: |
       echo "Move to /var/tmp with its full path."
     solve: |
@@ -35,7 +34,7 @@ tasks:
     needs: [second]
     timeout: 60
     check: |
-      wait_cwd "$SHELL_PID" "$GYM_USER_HOME/projects/archive/2025" >/dev/null || exit 1
+      wait_cwd --active "$GYM_USER_HOME/projects/archive/2025" >/dev/null || exit 1
       LINE=$(wait_line --latest '^cd( +.*)?$') || exit 1
       ARG=$(printf '%s' "$LINE" | sed -E 's/^cd +//')
       case "$ARG" in
@@ -50,7 +49,7 @@ tasks:
     needs: [third]
     timeout: 60
     check: |
-      wait_cwd "$SHELL_PID" /var/tmp >/dev/null || exit 1
+      wait_cwd --active /var/tmp >/dev/null || exit 1
       LINE=$(wait_line --latest '^cd( +.*)?$') || exit 1
       ARG=$(printf '%s' "$LINE" | sed -E 's/^cd +//')
       case "$ARG" in

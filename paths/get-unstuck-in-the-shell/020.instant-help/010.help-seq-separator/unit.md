@@ -15,7 +15,7 @@ tasks:
     needs: [consulted]
     timeout: 60
     check: |
-      wait_exec "(^|/)seq (-s|--separator=?) ?, ${N}\$"
+      wait_exec "(^|/)seq (-s|--separator=?) ?, (1 (1 )?)?${N}\$"
     hint: |
       echo "The separator option takes the separator as its value: seq, the option with a comma right after it, then ${N}."
     solve: |

@@ -33,8 +33,7 @@ init:
 tasks:
   at_tmp:
     check: |
-      P=$(wait_cwd "/tmp") || exit 1
-      set_var SHELL_PID "$P"
+      wait_cwd "/tmp"
     hint: |
       echo "Start in /tmp. Move there with its full path."
     solve: |
@@ -45,7 +44,7 @@ tasks:
     check: |
       D="$GYM_USER_HOME/projects/data"
       ARGV=$(wait_exec --latest '(^|/)ls( +\S+)*$') || exit 1
-      wait_cwd --now "$SHELL_PID" /tmp >/dev/null || hint_exit "Your shell left /tmp. Go back to /tmp and list the files from there, with the directory's path in front of the pattern."
+      wait_cwd --now --active /tmp >/dev/null || hint_exit "Your shell left /tmp. Go back to /tmp and list the files from there, with the directory's path in front of the pattern."
       set -f; set -- $ARGV; shift
       N=0
       for a in "$@"; do

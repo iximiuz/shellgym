@@ -22,8 +22,7 @@ init:
 tasks:
   at_work:
     check: |
-      P=$(wait_cwd "$GYM_USER_HOME/projects") || exit 1
-      set_var SHELL_PID "$P"
+      wait_cwd "$GYM_USER_HOME/projects"
     hint: |
       echo "Start in ~/projects. From anywhere, cd ~/projects gets you there."
     solve: |
@@ -41,10 +40,6 @@ tasks:
           *) hint_exit "That ls got a path as its argument. This unit requires listing the contents of the working directory itself: move to ~/projects and run ls with no arguments." ;;
         esac
       done
-      HERE=$(shell_cwd "$SHELL_PID")
-      if [ "$HERE" != "$GYM_USER_HOME/projects" ]; then
-        hint_exit "Your shell is in $HERE, so that ls showed the contents of $HERE. Move to ~/projects and run ls again."
-      fi
     hint: |
       echo "Run ls with no arguments. It shows the contents of the directory your shell is standing in."
     solve: |

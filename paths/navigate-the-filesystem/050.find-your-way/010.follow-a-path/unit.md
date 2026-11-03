@@ -17,8 +17,7 @@ init:
 tasks:
   arrived:
     check: |
-      P=$(wait_cwd "$(dirname "$GYM_USER_HOME/projects/$FILE")") || exit 1
-      set_var SHELL_PID "$P"
+      wait_cwd "$(dirname "$GYM_USER_HOME/projects/$FILE")"
     hint: |
       echo "Everything before the last slash is the directory. Move there and leave the file name off the path."
     solve: |

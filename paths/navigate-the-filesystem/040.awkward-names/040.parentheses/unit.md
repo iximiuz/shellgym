@@ -20,8 +20,7 @@ init:
 tasks:
   at_work:
     check: |
-      P=$(wait_cwd "$GYM_USER_HOME/projects") || exit 1
-      set_var SHELL_PID "$P"
+      wait_cwd --active "$GYM_USER_HOME/projects"
     hint: |
       echo "Start in ~/projects. From anywhere, cd ~/projects gets you there."
     solve: |
@@ -30,7 +29,7 @@ tasks:
     needs: [at_work]
     timeout: 60
     check: |
-      wait_cwd "$SHELL_PID" "$GYM_USER_HOME/projects/2026 \\(draft\\)" >/dev/null || exit 1
+      wait_cwd --active "$GYM_USER_HOME/projects/2026 \\(draft\\)" >/dev/null || exit 1
       LINE=$(wait_line --latest '^cd( +.*)?$') || exit 1
       ARG=$(printf '%s' "$LINE" | sed -E 's/^cd +//')
       case "$ARG" in

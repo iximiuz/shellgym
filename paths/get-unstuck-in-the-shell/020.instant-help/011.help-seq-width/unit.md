@@ -15,7 +15,7 @@ tasks:
     needs: [consulted]
     timeout: 60
     check: |
-      wait_exec "(^|/)seq (-w|--equal-width) ${N}\$"
+      wait_exec "(^|/)seq (-w|--equal-width) (1 (1 )?)?${N}\$"
     hint: |
       echo "The option takes no value: seq, the equal-width option, then ${N}."
     solve: |

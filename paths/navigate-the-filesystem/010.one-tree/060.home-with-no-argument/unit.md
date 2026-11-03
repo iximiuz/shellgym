@@ -4,8 +4,7 @@ requires: [readline]
 tasks:
   away:
     check: |
-      P=$(wait_cwd /var) || exit 1
-      set_var SHELL_PID "$P"
+      wait_cwd --active /var
     hint: |
       echo "Move to /var first."
     solve: |
@@ -14,7 +13,7 @@ tasks:
     needs: [away]
     timeout: 60
     check: |
-      wait_cwd "$SHELL_PID" "$GYM_USER_HOME" >/dev/null || exit 1
+      wait_cwd --active "$GYM_USER_HOME" >/dev/null || exit 1
       LINE=$(wait_line --latest '^cd( +.*)?$') || exit 1
       case "$LINE" in
         cd) exit 0 ;;

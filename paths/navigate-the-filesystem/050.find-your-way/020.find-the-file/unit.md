@@ -24,8 +24,7 @@ init:
 tasks:
   at_work:
     check: |
-      P=$(wait_cwd "$GYM_USER_HOME/projects") || exit 1
-      set_var SHELL_PID "$P"
+      wait_cwd "$GYM_USER_HOME/projects"
     hint: |
       echo "Start in ~/projects. From anywhere, cd ~/projects gets you there."
     solve: |
@@ -34,7 +33,7 @@ tasks:
     needs: [at_work]
     timeout: 60
     check: |
-      wait_cwd "$SHELL_PID" "$GYM_USER_HOME/projects/$HIDE"
+      wait_cwd "$GYM_USER_HOME/projects/$HIDE"
     hint: |
       echo "Look into each directory with ls until ${NAME} shows up, then move into that directory."
     solve: |

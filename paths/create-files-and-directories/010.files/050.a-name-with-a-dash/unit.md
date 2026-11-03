@@ -24,7 +24,7 @@ init:
       chown -R "$GYM_USER:$GYM_USER" "$W"
   - name: clear_target
     run: |
-      rm -f "$GYM_USER_HOME/projects/notes/$NAME"
+      rm -rf "$GYM_USER_HOME/projects/notes/$NAME"
 tasks:
   tried:
     timeout: 60
@@ -40,7 +40,8 @@ tasks:
     needs: [tried]
     timeout: 60
     check: |
-      wait_file "$GYM_USER_HOME/projects/notes/$NAME"
+      wait_file "$GYM_USER_HOME/projects/notes/$NAME" >/dev/null || exit 1
+      [ -f "$GYM_USER_HOME/projects/notes/$NAME" ] || hint_exit "That is a directory. Remove it with rmdir, then create a file with touch."
     hint: |
       echo "End the options with -- before the name, or write the name as a path: ./${NAME} from inside notes, or its full path from anywhere."
     solve: |

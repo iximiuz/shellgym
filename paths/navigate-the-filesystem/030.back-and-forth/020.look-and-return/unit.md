@@ -16,8 +16,7 @@ init:
 tasks:
   at_start:
     check: |
-      P=$(wait_cwd "$GYM_USER_HOME/projects/reports/drafts") || exit 1
-      set_var SHELL_PID "$P"
+      wait_cwd --active "$GYM_USER_HOME/projects/reports/drafts"
     hint: |
       echo "Start in ~/projects/reports/drafts. From anywhere, cd ~/projects/reports/drafts gets you there."
     solve: |
@@ -26,7 +25,7 @@ tasks:
     needs: [at_start]
     timeout: 60
     check: |
-      wait_cwd "$SHELL_PID" /etc >/dev/null || exit 1
+      wait_cwd --active /etc >/dev/null || exit 1
       wait_exec --cwd /etc '(^|/)ls( .*)?$'
     hint: |
       echo "Move to /etc, then run ls to see what is in it."
@@ -37,7 +36,7 @@ tasks:
     needs: [looked]
     timeout: 60
     check: |
-      wait_cwd "$SHELL_PID" "$GYM_USER_HOME/projects/reports/drafts" >/dev/null || exit 1
+      wait_cwd --active "$GYM_USER_HOME/projects/reports/drafts" >/dev/null || exit 1
       LINE=$(wait_line --latest '^cd( +.*)?$') || exit 1
       ARG=$(printf '%s' "$LINE" | sed -E 's/^cd +//')
       case "$ARG" in

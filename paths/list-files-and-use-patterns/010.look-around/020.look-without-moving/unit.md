@@ -24,8 +24,7 @@ init:
 tasks:
   at_home:
     check: |
-      P=$(wait_cwd "$GYM_USER_HOME") || exit 1
-      set_var SHELL_PID "$P"
+      wait_cwd "$GYM_USER_HOME"
     hint: |
       echo "Start from your home directory. A bare cd takes you there."
     solve: |
@@ -36,7 +35,7 @@ tasks:
     check: |
       wait_exec --cwd "$GYM_USER_HOME" "(^|/)ls( +-\S+)* +\S*projects/${TARGET}/?\$"
     hint: |
-      HERE=$(shell_cwd "$SHELL_PID")
+      HERE=$(shell_cwd --active)
       if [ "$HERE" != "$GYM_USER_HOME" ]; then
         echo "Your shell has moved to $HERE. Go back home and give ls the path of the directory as its argument instead of moving there."
       else

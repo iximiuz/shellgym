@@ -4,7 +4,14 @@ variant: apropos=shuf
 tasks:
   searched:
     check: |
-      wait_exec '(?i)(^|/)apropos .*(random|permutation)'
+      ARGV=$(wait_exec --latest '(^|/)apropos .+') || exit 1
+      WORDS=${ARGV#* }
+      if [[ "$WORDS" == *" "* ]] && [ "$(wait_exec --now --latest --argc 2 '(^|/)apropos .+')" != "$ARGV" ]; then
+        hint_exit "The words reached apropos as separate arguments, so it searched for each word on its own. Quote the phrase to search for it as a whole."
+      fi
+      FOUND=$(apropos -- "$WORDS" 2>/dev/null)
+      grep -q '^shuf ' <<< "$FOUND" || hint_exit "The command you are after is not among the results of that search. Search for the phrase random permutation."
+      set_var SEARCHED_SEQ "$(event_seq)"
     hint: |
       echo "Search the descriptions with apropos followed by the phrase. Quote the phrase, since it contains a space."
     solve: |
@@ -13,7 +20,7 @@ tasks:
     needs: [searched]
     timeout: 60
     check: |
-      wait_exec '(^|/)shuf .*(-i|--input-range)'
+      wait_exec --after "$SEARCHED_SEQ" '(^|/)shuf .*(-i|--input-range)'
     hint: |
       echo "In each result line, the command name is on the left of the dash. Spot the one about permutations, and run it with -i 1-10."
     solve: |

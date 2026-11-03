@@ -4,7 +4,14 @@ variant: apropos=free
 tasks:
   searched:
     check: |
-      wait_exec '(?i)(^|/)apropos .*(free|memory)'
+      ARGV=$(wait_exec --latest '(^|/)apropos .+') || exit 1
+      WORDS=${ARGV#* }
+      if [[ "$WORDS" == *" "* ]] && [ "$(wait_exec --now --latest --argc 2 '(^|/)apropos .+')" != "$ARGV" ]; then
+        hint_exit "The words reached apropos as separate arguments, so it searched for each word on its own. Quote the phrase to search for it as a whole."
+      fi
+      FOUND=$(apropos -- "$WORDS" 2>/dev/null)
+      grep -q '^free ' <<< "$FOUND" || hint_exit "The command you are after is not among the results of that search. Search for the phrase free and used memory."
+      set_var SEARCHED_SEQ "$(event_seq)"
     hint: |
       echo "Search the descriptions with apropos followed by the phrase. Quote the phrase, since it contains a space."
     solve: |
@@ -13,7 +20,7 @@ tasks:
     needs: [searched]
     timeout: 60
     check: |
-      wait_exec '(^|/)free( .*)?$'
+      wait_exec --after "$SEARCHED_SEQ" '(^|/)free( .*)?$'
     hint: |
       echo "In each result line, the command name is on the left of the dash. Spot the one about memory, and run it."
     solve: |

@@ -13,8 +13,7 @@ tasks:
     needs: [printed]
     timeout: 60
     check: |
-      P=$(wait_cwd /usr) || exit 1
-      set_var SHELL_PID "$P"
+      wait_cwd --active /usr
     hint: |
       echo "Move to /usr with its full path."
     solve: |
@@ -23,7 +22,7 @@ tasks:
     needs: [away]
     timeout: 60
     check: |
-      wait_cwd "$SHELL_PID" "$GYM_USER_HOME" >/dev/null || exit 1
+      wait_cwd --active "$GYM_USER_HOME" >/dev/null || exit 1
       LINE=$(wait_line --latest '^cd( +.*)?$') || exit 1
       ARG=$(printf '%s' "$LINE" | sed -E 's/^cd +//')
       case "$ARG" in

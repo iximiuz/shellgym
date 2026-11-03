@@ -18,7 +18,8 @@ tasks:
     needs: [directory]
     timeout: 60
     check: |
-      wait_file "$GYM_USER_HOME/.$NAME/settings"
+      wait_file "$GYM_USER_HOME/.$NAME/settings" >/dev/null || exit 1
+      [ -f "$GYM_USER_HOME/.$NAME/settings" ] || hint_exit "That is a directory. Remove it with rmdir, then create a file with touch."
     hint: |
       echo "Create an empty file named settings inside ~/.${NAME}."
     solve: |

@@ -28,12 +28,35 @@ tasks:
   looked:
     timeout: 60
     check: |
+      D="$GYM_USER_HOME/projects/reports/final"
       ARGV=$(wait_exec --latest '(^|/)ls( +\S+)*$') || exit 1
+      set -f; set -- $ARGV; shift
+      CWD=$(shell_cwd 2>/dev/null || true)
+      N=0; SEEN=0
+      for a in "$@"; do
+        case "$a" in
+          -*) continue ;;
+          /*) P=$(realpath -m "$a") ;;
+          *) P=$(realpath -m "${CWD:-$GYM_USER_HOME}/$a") ;;
+        esac
+        N=$((N+1)); T="$a"
+        if [ "$P" = "$D" ] || [ "$P" = "$D/summary.txt" ]; then SEEN=1; fi
+      done
+      if [ "$N" -eq 0 ]; then
+        [ "$CWD" = "$D" ] || hint_exit "Your shell is in ${CWD:-another directory}, so that listing does not show summary.txt. Move to ~/projects/reports/final first, or give ls the path ~/projects/reports/final as its argument."
+      elif [ "$SEEN" -eq 0 ]; then
+        hint_exit "That listed $T, so it does not show summary.txt. List ~/projects/reports/final instead."
+      fi
       S=' -[a-zA-Z0-9]*l[a-zA-Z0-9]* '
       L=' --format=(long|verbose) '
       if [[ " $ARGV " =~ $S ]] || [[ " $ARGV " =~ $L ]]; then exit 0; fi
       hint_exit "That listing does not show dates. Use the long format."
     hint: |
+      CWD=$(shell_cwd 2>/dev/null)
+      if [ -n "$CWD" ] && [ "$CWD" != "$GYM_USER_HOME/projects/reports/final" ]; then
+        echo "Your shell is in $CWD. Give ls the path ~/projects/reports/final as its argument, and use the long format to see the date of summary.txt."
+        exit 0
+      fi
       echo "List the contents of ~/projects/reports/final in the long format and read the date of summary.txt."
     solve: |
       ls -l ~/projects/reports/final

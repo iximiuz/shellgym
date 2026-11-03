@@ -27,8 +27,7 @@ init:
 tasks:
   at_tmp:
     check: |
-      P=$(wait_cwd "/tmp") || exit 1
-      set_var SHELL_PID "$P"
+      wait_cwd "/tmp"
     hint: |
       echo "Start in /tmp. Move there with its full path."
     solve: |
@@ -38,7 +37,7 @@ tasks:
     timeout: 60
     check: |
       wait_dir "$GYM_USER_HOME/projects/archive/$YEAR/reports" >/dev/null || exit 1
-      wait_cwd --now "$SHELL_PID" /tmp >/dev/null || hint_exit "The directories exist, but your shell left /tmp. Go back to /tmp and do the rest from there, with full paths."
+      wait_cwd --now --active /tmp >/dev/null || hint_exit "The directories exist, but your shell left /tmp. Go back to /tmp and do the rest from there, with full paths."
     hint: |
       echo "From /tmp, one mkdir with the parents option and the full path ~/projects/archive/${YEAR}/reports."
     solve: |
@@ -47,8 +46,10 @@ tasks:
     needs: [directories]
     timeout: 60
     check: |
-      wait_file "$GYM_USER_HOME/projects/archive/$YEAR/reports/Quarterly summary.txt" >/dev/null || exit 1
-      wait_cwd --now "$SHELL_PID" /tmp >/dev/null || hint_exit "The file exists, but your shell left /tmp. Go back to /tmp and do the rest from there, with full paths."
+      F="$GYM_USER_HOME/projects/archive/$YEAR/reports/Quarterly summary.txt"
+      wait_file "$F" >/dev/null || exit 1
+      [ -f "$F" ] || hint_exit "That is a directory. Remove it with rmdir, then create a file with touch."
+      wait_cwd --now --active /tmp >/dev/null || hint_exit "The file exists, but your shell left /tmp. Go back to /tmp and do the rest from there, with full paths."
     hint: |
       R="$GYM_USER_HOME/projects/archive/$YEAR/reports"
       if [ -e "$R/Quarterly" ] || [ -e "$R/summary.txt" ]; then

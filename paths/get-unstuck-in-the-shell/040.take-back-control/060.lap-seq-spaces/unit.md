@@ -18,7 +18,7 @@ tasks:
     needs: [discovered]
     timeout: 60
     check: |
-      wait_exec "(^|/)seq (-s|--separator=?) {1,3}${N}\$"
+      wait_exec "(^|/)seq (-s|--separator=?) {2,3}(1 (1 )?)?${N}\$"
     hint: |
       echo "The separator option takes the separator as its value, and a space must be quoted to survive as one: seq, the option, a quoted space, then ${N}."
     solve: |

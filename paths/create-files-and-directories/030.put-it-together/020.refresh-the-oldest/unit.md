@@ -35,7 +35,25 @@ tasks:
   sorted:
     timeout: 60
     check: |
+      D="$GYM_USER_HOME/projects/backups"
       ARGV=$(wait_exec --latest '(^|/)ls( +\S+)*$') || exit 1
+      set -f; set -- $ARGV; shift
+      CWD=$(shell_cwd 2>/dev/null || true)
+      N=0; SEEN=0
+      for a in "$@"; do
+        case "$a" in
+          -*) continue ;;
+          /*) P=$(realpath -m "$a") ;;
+          *) P=$(realpath -m "${CWD:-$GYM_USER_HOME}/$a") ;;
+        esac
+        N=$((N+1)); A="$a"
+        if [ "$P" = "$D" ] || [ "${P%/*}" = "$D" ]; then SEEN=1; fi
+      done
+      if [ "$N" -eq 0 ]; then
+        [ "$CWD" = "$D" ] || hint_exit "Your shell is in ${CWD:-another directory}, so that listing does not show the backups. Move to ~/projects/backups first, or give ls the path ~/projects/backups as its argument."
+      elif [ "$SEEN" -eq 0 ]; then
+        hint_exit "That listed $A, so it does not show the backups. List ~/projects/backups instead."
+      fi
       T=' -[a-zA-Z0-9]*t[a-zA-Z0-9]* '
       TL=' --sort=time '
       if [[ " $ARGV " =~ $T ]] || [[ " $ARGV " =~ $TL ]]; then exit 0; fi

@@ -16,7 +16,7 @@ init:
 tasks:
   parked:
     check: |
-      P=$(wait_cwd "$GYM_USER_HOME/projects/notes") || exit 1
+      P=$(wait_cwd --active "$GYM_USER_HOME/projects/notes") || exit 1
       set_var OUTER_PID "$P"
     hint: |
       echo "Start in ~/projects/notes. From anywhere, cd ~/projects/notes gets you there."
@@ -35,7 +35,7 @@ tasks:
     needs: [nested]
     timeout: 60
     check: |
-      P=$(wait_cwd /tmp) || exit 1
+      P=$(wait_cwd --active /tmp) || exit 1
       [ "$P" != "$OUTER_PID" ] || hint_exit "The shell that moved to /tmp is the outer one. Start the inner shell with bash first, then move inside it."
     hint: |
       echo "Inside the inner shell, move to /tmp."

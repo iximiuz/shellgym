@@ -30,12 +30,14 @@ init:
         yes 'id,name,quantity,location' | head -c "$S" > "$D/sales-$q.csv" || true
       done
       chown "$GYM_USER:$GYM_USER" "$D"/sales-q?.csv
-      rm -f "$D"/*.reviewed
+      rm -rf "$D"/*.reviewed
 tasks:
   marked:
     timeout: 60
     check: |
-      wait_file "$GYM_USER_HOME/projects/data/sales-$LARGEST.csv.reviewed"
+      F="$GYM_USER_HOME/projects/data/sales-$LARGEST.csv.reviewed"
+      wait_file "$F" >/dev/null || exit 1
+      [ -f "$F" ] || hint_exit "That is a directory. Remove it with rmdir, then create a file with touch."
     hint: |
       D="$GYM_USER_HOME/projects/data"
       for f in "$D"/*.reviewed; do
