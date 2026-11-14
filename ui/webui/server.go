@@ -183,6 +183,10 @@ type unitJSON struct {
 	Status string            `json:"status"`
 	Locked bool              `json:"locked"`
 	Vars   map[string]string `json:"vars,omitempty"` // consumed by `shellgym solve`
+	// InitDone reports that the unit's init scripts have finished (also
+	// true for a unit without any). `shellgym solve` waits for it before
+	// typing, as a student reading the unit text does in effect.
+	InitDone bool `json:"initDone"`
 	// Unsupported units render as a disabled preview; MissingCaps (set only
 	// when the unit itself has unmet requires:) feeds the badge text.
 	Unsupported bool     `json:"unsupported,omitempty"`
@@ -232,6 +236,7 @@ func (s *Server) handleUnit(w http.ResponseWriter, r *http.Request) {
 	s.Engine.Store.View(func(d *state.Data) {
 		us := d.Unit(id)
 		out.Status = string(us.Status)
+		out.InitDone = us.InitDone
 		for _, t := range u.Tasks {
 			tj := taskJSON{Name: t.Name, Mode: string(t.Mode), Status: "pending", Needs: t.Needs}
 			if ts, ok := us.Tasks[t.Name]; ok {

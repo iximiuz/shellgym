@@ -264,6 +264,9 @@ type apiUnit struct {
 	Status string            `json:"status"`
 	Vars   map[string]string `json:"vars"`
 	Tasks  []apiTask         `json:"tasks"`
+	// InitDone is nil for a daemon that does not report it (older than
+	// the solver); the solver then falls back to a fixed pause.
+	InitDone *bool `json:"initDone"`
 }
 
 // --- the walk ---------------------------------------------------------------
@@ -342,6 +345,7 @@ func solveUnit(c *apiClient, sh *studentShell, u *content.Unit, timeout time.Dur
 	if err := c.post("/api/activate/" + u.ID); err != nil {
 		return err
 	}
+	initDeadline := time.Now().Add(timeout)
 	var au apiUnit
 	if err := c.get("/api/unit/"+u.ID, &au); err != nil {
 		return err
@@ -360,7 +364,14 @@ func solveUnit(c *apiClient, sh *studentShell, u *content.Unit, timeout time.Dur
 		}
 	}
 
-	time.Sleep(1 * time.Second) // give init tasks a moment
+	// The unit's init runs in the background after activation. Typing
+	// into a scene that is still being built races the init (a pod being
+	// recreated, a file not yet there), so wait for it to finish - then
+	// pause a moment, as a student reading the unit text does.
+	if err := waitInit(c, u.ID, au.InitDone, initDeadline); err != nil {
+		return err
+	}
+	time.Sleep(1 * time.Second)
 
 	// Type each task's solve script in task order, waiting for the task to
 	// pass before starting the next one - exactly like a student watching
@@ -415,6 +426,24 @@ func solveUnit(c *apiClient, sh *studentShell, u *content.Unit, timeout time.Dur
 		time.Sleep(1 * time.Second)
 	}
 	return fmt.Errorf("not completed within %s", timeout)
+}
+
+// waitInit blocks until the daemon reports the unit's init scripts as
+// finished. A daemon that does not report it (initDone absent) is not
+// waited for: the solver's fixed pause is all it gets, as before.
+func waitInit(c *apiClient, unitID string, initDone *bool, deadline time.Time) error {
+	for initDone != nil && !*initDone {
+		if time.Now().After(deadline) {
+			return fmt.Errorf("the unit's init did not finish in time (a failed init script leaves the unit's tasks unstarted)")
+		}
+		time.Sleep(200 * time.Millisecond)
+		var au apiUnit
+		if err := c.get("/api/unit/"+unitID, &au); err != nil {
+			return err
+		}
+		initDone = au.InitDone
+	}
+	return nil
 }
 
 // expandVars substitutes the unit's vars ($NAME and ${NAME}) into a solve

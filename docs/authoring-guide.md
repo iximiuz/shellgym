@@ -422,7 +422,10 @@ solution command. If you absolutely want to do it, save it for a late attempt
 
 `solve:` is the hidden reference solution, used only by the
 `shellgym solve` acceptance driver, which types it line by line into a
-real pty shell. Write each line to be independently typable: no
+real pty shell. The driver activates the unit, waits for its init
+scripts to finish, pauses for a second, and only then types - so a
+solve script needs no pause of its own to let the scene settle. Write
+each line to be independently typable: no
 heredocs, no multi-line constructs, no `\` continuations. Blank lines
 and `#` comments are skipped. In student-facing deployments
 (`serve --live`) solve blocks are stripped from the on-disk files.
