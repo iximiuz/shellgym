@@ -261,9 +261,12 @@ tasks:
 ```
 
 Very short-lived processes are harvested from `/proc` right after the
-exec event; in the rare case the process vanishes before its argv could
-be read, the event is dropped. Commands typed at human speed are
-reliably captured.
+exec event. A command that exits before its argv could be read there (a
+`whoami`, a `date` with a bad option) is completed from bash's
+`shell_execve` probe (see [detection.md](detection.md#fast-commands)),
+so commands run from bash are reliably captured however fast they are.
+On a host without that probe, or for a program started by something
+other than bash, such an event is dropped.
 
 ### `wait_env [--cwd <path>] [--after N] <NAME> [regex]`
 

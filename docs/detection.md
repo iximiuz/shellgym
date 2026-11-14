@@ -82,6 +82,34 @@ from procfs:
   fast commands are gone long before a `wait_env` check could read
   their environment lazily.
 
+### Fast commands
+
+A command that lives about a millisecond (`whoami`, `tty`, a `date` with
+a bad option) can exit before the daemon gets to `/proc/<pid>/cmdline` -
+an exited process's argv is gone, so the event would be lost. Two things
+close that gap:
+
+- **bash's `shell_execve` probe.** bash calls `shell_execve(command,
+  argv, env)` right before `execve(2)`, in the process that is about to
+  become the command. A uprobe on it (the same tracefs machinery as the
+  readline watcher, in its own instance `shellgym-exec`) has the kernel
+  copy the path and up to 24 argv strings into the trace buffer at that
+  moment. When the `/proc` read comes up empty, the exec event is paired
+  with the probe's argv for the same pid; uid, tty, and cwd come from the
+  zombie if it is still there, else from its parent - the shell that ran
+  it (the parent is known from the connector's fork events). It covers
+  everything bash executes, typed or scripted; a program started by
+  another program (`sudo`, `xargs`, `find -exec`) still relies on the
+  `/proc` read. The probe is optional (root, tracefs with uprobe events,
+  a bash that exports `shell_execve`, amd64 or arm64); `/api/status`
+  reports it as `argvSource`, with `argvRecovered`, `argvLost`, and
+  `argvDropped` (records the kernel dropped when the trace buffer was
+  full) counts.
+- **a high-priority reader.** The thread that reads the connector runs
+  at `SCHED_FIFO` priority 10 where the kernel allows it, else at nice
+  -20. Kernels with RT group scheduling refuse `SCHED_FIFO` to any task
+  outside the root cgroup, a systemd service included.
+
 Events are recorded into a bounded in-memory ring buffer (4096 entries)
 with monotonically increasing sequence numbers. Checks wait on the
 buffer: a `wait_exec` first scans buffered events, then blocks until a

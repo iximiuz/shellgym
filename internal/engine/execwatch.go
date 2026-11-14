@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
+	"unsafe"
 
 	"golang.org/x/sys/unix"
 )
@@ -45,7 +48,58 @@ type ExecWatcher struct {
 	// Source is "netlink" when the connector is active, "" when exec
 	// watching is unavailable.
 	Source string
+	// ArgvSource is "uprobe" when the shell_execve probe backs up argv
+	// reads (see ArgvProbe), "" without it.
+	ArgvSource string
+	// ArgvTarget is the probed binary and offset (for logs).
+	ArgvTarget string
+
+	probe *ArgvProbe
+	// loopDone is closed when the netlink loop has exited and closed its
+	// socket (nil when Start was never called).
+	loopDone chan struct{}
+	// late holds the bookkeeping that pairs exec events whose /proc entry
+	// was gone with the argv the probe recorded for the same pid. All of it
+	// is only used while the probe is active.
+	late struct {
+		sync.Mutex
+		forks     map[int]forkRec  // child pid -> parent, from fork events
+		argvs     map[int]argvRec  // probe argv not claimed by a late exec (yet)
+		pending   map[int]lateExec // late execs waiting for the probe's argv
+		lost      int              // late execs that never got an argv
+		recovered int              // late execs completed with the probe's argv
+		// cumulative counts since start (the two above reset on every log)
+		recoveredTotal, lostTotal int
+		dropped                   int // probe records the kernel dropped (trace buffer full)
+		lastLog                   time.Time
+	}
 }
+
+type forkRec struct {
+	ppid int
+	at   time.Time
+}
+
+type argvRec struct {
+	argv []string
+	at   time.Time
+}
+
+type lateExec struct {
+	ev       ExecEvent
+	deadline time.Time
+}
+
+const (
+	// A probe record precedes its exec event (shell_execve runs before
+	// execve), but the two reach the daemon on separate streams; pair them
+	// within these windows.
+	// The probe's trace reader can lag behind a burst of bash execs (a
+	// busy build or loop), so a late exec waits generously for its argv.
+	lateArgvTTL  = 6 * time.Second
+	lateExecWait = 5 * time.Second
+	lateForkTTL  = 5 * time.Second
+)
 
 const ringSize = 4096
 
@@ -66,7 +120,256 @@ func (w *ExecWatcher) Start() error {
 		return fmt.Errorf("proc connector unavailable (run shellgym as root): %w", err)
 	}
 	w.Source = "netlink"
+	w.loopDone = make(chan struct{})
 	go w.netlinkLoop(sock)
+	return nil
+}
+
+// StartArgvProbe installs the shell_execve probe (see ArgvProbe) on the
+// given shell. It is optional: on error the watcher keeps running without
+// it, and commands that exit before their /proc entry is read stay unseen.
+func (w *ExecWatcher) StartArgvProbe(shellPath string) error {
+	w.late.Lock()
+	w.late.forks = map[int]forkRec{}
+	w.late.argvs = map[int]argvRec{}
+	w.late.pending = map[int]lateExec{}
+	w.late.Unlock()
+	p, err := startArgvProbe(shellPath, w.probeArgv, w.probeDropped, w.expireLate)
+	if err != nil {
+		return err
+	}
+	w.late.Lock()
+	w.probe = p
+	w.late.Unlock()
+	w.ArgvSource = "uprobe"
+	w.ArgvTarget = p.Target
+	return nil
+}
+
+// Close wakes every waiter, stops the netlink loop, and removes the argv
+// probe. It waits for the loop to close its socket: the socket is bound to
+// the daemon's pid, so a watcher started again in the same process (tests)
+// could not bind while the old one is still open.
+func (w *ExecWatcher) Close() {
+	w.eventRing.Close()
+	if w.loopDone != nil {
+		select {
+		case <-w.loopDone:
+		case <-time.After(2 * time.Second):
+		}
+	}
+	w.late.Lock()
+	p := w.probe
+	w.probe = nil
+	w.late.Unlock()
+	if p != nil {
+		p.Close()
+	}
+}
+
+// ArgvStats returns how many exec events of processes that were gone
+// before /proc could be read were recovered from the argv probe, how many
+// were lost, and how many probe records the kernel dropped, since the
+// probe started.
+func (w *ExecWatcher) ArgvStats() (recovered, lost, dropped int) {
+	w.late.Lock()
+	defer w.late.Unlock()
+	return w.late.recoveredTotal, w.late.lostTotal, w.late.dropped
+}
+
+// probeDropped counts probe records the kernel dropped because the trace
+// buffer was full; their late execs, if any, end up lost.
+func (w *ExecWatcher) probeDropped(n int) {
+	w.late.Lock()
+	w.late.dropped += n
+	w.late.Unlock()
+}
+
+func (w *ExecWatcher) probeActive() bool {
+	w.late.Lock()
+	defer w.late.Unlock()
+	return w.probe != nil
+}
+
+// recordFork remembers a new process's parent: when a fast command is
+// already reaped by the time its exec event is handled, /proc has nothing
+// left, and the parent (the shell that ran it) is where uid, tty, and cwd
+// come from.
+func (w *ExecWatcher) recordFork(child, parent int) {
+	w.late.Lock()
+	defer w.late.Unlock()
+	if w.probe == nil {
+		return
+	}
+	// O(1) on the latency-critical reader thread: expireLate prunes.
+	w.late.forks[child] = forkRec{ppid: parent, at: time.Now()}
+}
+
+// lateExec handles an exec event whose argv could not be read from /proc:
+// it is published as soon as the probe's argv for the pid is at hand.
+func (w *ExecWatcher) lateExec(pid int) {
+	ev := partialExecEvent(pid)
+	w.late.Lock()
+	if ev.PPID <= 0 {
+		if f, ok := w.late.forks[pid]; ok {
+			ev.PPID = f.ppid
+		}
+	}
+	w.late.Unlock()
+	fillFromParent(&ev)
+
+	w.late.Lock()
+	if a, ok := w.late.argvs[pid]; ok {
+		delete(w.late.argvs, pid)
+		w.late.recovered++
+		w.late.recoveredTotal++
+		w.late.Unlock()
+		ev.Argv = a.argv
+		w.publish(ev)
+		return
+	}
+	w.late.pending[pid] = lateExec{ev: ev, deadline: time.Now().Add(lateExecWait)}
+	w.late.Unlock()
+}
+
+// probeArgv receives one argv from the shell_execve probe.
+func (w *ExecWatcher) probeArgv(pid int, argv []string) {
+	w.late.Lock()
+	if p, ok := w.late.pending[pid]; ok {
+		delete(w.late.pending, pid)
+		w.late.recovered++
+		w.late.recoveredTotal++
+		w.late.Unlock()
+		p.ev.Argv = argv
+		w.publish(p.ev)
+		return
+	}
+	w.late.argvs[pid] = argvRec{argv: argv, at: time.Now()}
+	w.late.Unlock()
+}
+
+// expireLate drops what can no longer be paired: probe argvs of commands
+// whose /proc read succeeded (the vast majority), and late execs whose
+// argv never arrived (the probe saw no bash exec for the pid - the command
+// was started by another program).
+func (w *ExecWatcher) expireLate() {
+	now := time.Now()
+	w.late.Lock()
+	defer w.late.Unlock()
+	for pid, a := range w.late.argvs {
+		if now.Sub(a.at) > lateArgvTTL {
+			delete(w.late.argvs, pid)
+		}
+	}
+	for pid, f := range w.late.forks {
+		if now.Sub(f.at) > lateForkTTL {
+			delete(w.late.forks, pid)
+		}
+	}
+	for pid, p := range w.late.pending {
+		if now.After(p.deadline) {
+			delete(w.late.pending, pid)
+			w.late.lost++
+			w.late.lostTotal++
+		}
+	}
+	if (w.late.lost > 0 || w.late.recovered > 0) && now.Sub(w.late.lastLog) > time.Minute {
+		log.Printf("execwatch: %d exec event(s) of processes gone before /proc was read: %d recovered from the argv probe, %d lost (not started by bash)",
+			w.late.recovered+w.late.lost, w.late.recovered, w.late.lost)
+		w.late.lost, w.late.recovered = 0, 0
+		w.late.lastLog = now
+	}
+}
+
+// partialExecEvent reads what a zombie still shows (uid, ppid, tty) for an
+// exec whose argv is gone. Fields stay unknown (-1) when the process is
+// already reaped.
+func partialExecEvent(pid int) ExecEvent {
+	ev := ExecEvent{PID: pid, PPID: -1, UID: -1, TTYNr: -1}
+	if status, err := os.ReadFile(fmt.Sprintf("/proc/%d/status", pid)); err == nil {
+		ev.UID, ev.PPID = parseStatusIDs(string(status))
+	}
+	if stat, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid)); err == nil {
+		if f := statFields(string(stat)); len(f) > 6 {
+			if v, err := strconv.Atoi(f[6]); err == nil {
+				ev.TTYNr = v
+			}
+		}
+	}
+	return ev
+}
+
+// fillFromParent completes a late exec event from its parent: a command
+// typed at the prompt runs as the shell's user, on the shell's terminal,
+// in the shell's directory - and the shell waits for it before it runs
+// anything else.
+func fillFromParent(ev *ExecEvent) {
+	if ev.PPID <= 1 {
+		return
+	}
+	if ev.UID < 0 || ev.TTYNr < 0 {
+		parent := partialExecEvent(ev.PPID)
+		if ev.UID < 0 {
+			ev.UID = parent.UID
+		}
+		if ev.TTYNr < 0 {
+			ev.TTYNr = parent.TTYNr
+		}
+	}
+	if cwd, err := os.Readlink(fmt.Sprintf("/proc/%d/cwd", ev.PPID)); err == nil {
+		ev.Cwd = cwd
+	}
+}
+
+// parseStatusIDs extracts the real uid and the ppid from /proc/<pid>/status
+// (-1 when absent).
+func parseStatusIDs(status string) (uid, ppid int) {
+	uid, ppid = -1, -1
+	for _, line := range strings.Split(status, "\n") {
+		if v, ok := strings.CutPrefix(line, "Uid:"); ok {
+			if f := strings.Fields(v); len(f) > 0 {
+				uid, _ = strconv.Atoi(f[0])
+			}
+		} else if v, ok := strings.CutPrefix(line, "PPid:"); ok {
+			ppid, _ = strconv.Atoi(strings.TrimSpace(v))
+		}
+	}
+	return uid, ppid
+}
+
+// netlinkPriority is the SCHED_FIFO priority of the thread that reads the
+// proc connector: an exec event wakes it ahead of ordinary tasks, so the
+// /proc read races the command's exit as early as possible. Low on the RT
+// scale - it only has to beat SCHED_OTHER work.
+const netlinkPriority = 10
+
+// raisePriority makes the calling thread (the netlink reader) the first to
+// run when an exec event arrives: real-time if the kernel allows it, else
+// the highest nice. Kernels with RT group scheduling (CONFIG_RT_GROUP_SCHED)
+// refuse SCHED_FIFO to any task outside the root cgroup - a systemd service
+// included - so the nice fallback is the common case on such hosts.
+func raisePriority() {
+	rtErr := setRealtime(netlinkPriority)
+	if rtErr == nil {
+		log.Printf("execwatch: netlink reader runs at SCHED_FIFO priority %d", netlinkPriority)
+		return
+	}
+	// PRIO_PROCESS with a thread id sets that thread's nice on Linux.
+	if err := unix.Setpriority(unix.PRIO_PROCESS, unix.Gettid(), -20); err != nil {
+		log.Printf("execwatch: netlink reader keeps the default priority (SCHED_FIFO: %v, nice -20: %v)", rtErr, err)
+		return
+	}
+	log.Printf("execwatch: netlink reader runs at nice -20 (SCHED_FIFO refused: %v)", rtErr)
+}
+
+// setRealtime switches the calling thread to SCHED_FIFO at the given
+// priority (sched_setscheduler with pid 0 acts on the calling thread).
+func setRealtime(prio int) error {
+	param := struct{ priority int32 }{int32(prio)}
+	_, _, errno := unix.RawSyscall(unix.SYS_SCHED_SETSCHEDULER, 0, 1 /* SCHED_FIFO */, uintptr(unsafe.Pointer(&param)))
+	if errno != 0 {
+		return errno
+	}
 	return nil
 }
 
@@ -76,6 +379,7 @@ const (
 	cnIdxProc         = 1
 	cnValProc         = 1
 	procCnMcastListen = 1
+	procEventFork     = 0x00000001
 	procEventExec     = 0x00000002
 	nlMsgDone         = 0x3
 )
@@ -96,6 +400,12 @@ func openProcConnector() (int, error) {
 	// connector itself needs, so the fallback is mostly for tests.
 	if err := unix.SetsockoptInt(sock, unix.SOL_SOCKET, unix.SO_RCVBUFFORCE, 8<<20); err != nil {
 		_ = unix.SetsockoptInt(sock, unix.SOL_SOCKET, unix.SO_RCVBUF, 8<<20)
+	}
+	// A receive timeout lets the loop notice Close without an event to
+	// wake it up.
+	if err := unix.SetsockoptTimeval(sock, unix.SOL_SOCKET, unix.SO_RCVTIMEO, &unix.Timeval{Usec: 250000}); err != nil {
+		unix.Close(sock)
+		return -1, err
 	}
 	if err := sendProcListen(sock, procCnMcastListen); err != nil {
 		unix.Close(sock)
@@ -121,7 +431,13 @@ func sendProcListen(sock int, op uint32) error {
 }
 
 func (w *ExecWatcher) netlinkLoop(sock int) {
+	defer close(w.loopDone)
 	defer unix.Close(sock)
+	// A dedicated high-priority thread: the goroutine never unlocks it, so
+	// the thread ends with the loop and its priority never leaks to other
+	// goroutines.
+	runtime.LockOSThread()
+	raisePriority()
 	buf := make([]byte, 65536)
 	le := binary.LittleEndian
 	var lastOverflowLog time.Time
@@ -131,7 +447,8 @@ func (w *ExecWatcher) netlinkLoop(sock int) {
 		}
 		n, _, err := unix.Recvfrom(sock, buf, 0)
 		if err != nil {
-			if err == unix.EINTR {
+			if err == unix.EINTR || err == unix.EAGAIN {
+				// EAGAIN: the receive timeout - a chance to notice Close.
 				continue
 			}
 			if err == unix.ENOBUFS {
@@ -159,6 +476,15 @@ func (w *ExecWatcher) netlinkLoop(sock int) {
 			pe := off + 16 + 20
 			if pe+16 <= n {
 				what := le.Uint32(buf[pe:])
+				if what == procEventFork && pe+32 <= n {
+					// fork_proc_event: parent_pid, parent_tgid, child_pid, child_tgid
+					parentTgid := int(le.Uint32(buf[pe+20:]))
+					childPid := int(le.Uint32(buf[pe+24:]))
+					childTgid := int(le.Uint32(buf[pe+28:]))
+					if childPid == childTgid { // a process, not a thread
+						w.recordFork(childPid, parentTgid)
+					}
+				}
 				if what == procEventExec {
 					// exec event: process pid at pe+16 (after what, cpu, timestamp[8])
 					pid := int(le.Uint32(buf[pe+16:]))
@@ -170,6 +496,8 @@ func (w *ExecWatcher) netlinkLoop(sock int) {
 					// bursts while the loop catches up.
 					if ev, ok := harvestProc(pid); ok {
 						w.publish(ev)
+					} else if w.probeActive() {
+						w.lateExec(pid)
 					}
 				}
 			}
@@ -209,17 +537,7 @@ func harvestProc(pid int) (ExecEvent, bool) {
 			}
 		}
 	}
-	uid, ppid := -1, -1
-	for _, line := range strings.Split(string(status), "\n") {
-		if v, ok := strings.CutPrefix(line, "Uid:"); ok {
-			f := strings.Fields(v)
-			if len(f) > 0 {
-				uid, _ = strconv.Atoi(f[0])
-			}
-		} else if v, ok := strings.CutPrefix(line, "PPid:"); ok {
-			ppid, _ = strconv.Atoi(strings.TrimSpace(v))
-		}
-	}
+	uid, ppid := parseStatusIDs(string(status))
 	if cwd == "" {
 		cwd = inheritCwd(pid, ppid, argv)
 	}

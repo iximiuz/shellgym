@@ -380,17 +380,25 @@ func (s *Server) handleSelectVariant(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	distro, _ := content.DetectDistro()
-	src := ""
+	src, argvSrc := "", ""
+	recovered, lost, dropped := 0, 0, 0
 	if s.Engine.Watcher != nil {
 		src = s.Engine.Watcher.Source
+		argvSrc = s.Engine.Watcher.ArgvSource
+		recovered, lost, dropped = s.Engine.Watcher.ArgvStats()
 	}
 	shells, _ := engine.FindShells(s.Engine.Path.ShellUser)
 	writeJSON(w, map[string]any{
 		"distro":     distro,
 		"execSource": src,
-		"shellUser":  s.Engine.Path.ShellUser,
-		"shells":     shells,
-		"live":       s.Opts.Live,
+		"argvSource": argvSrc,
+		// exec events of processes gone before /proc was read
+		"argvRecovered": recovered,
+		"argvLost":      lost,
+		"argvDropped":   dropped,
+		"shellUser":     s.Engine.Path.ShellUser,
+		"shells":        shells,
+		"live":          s.Opts.Live,
 	})
 }
 

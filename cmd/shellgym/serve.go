@@ -104,6 +104,13 @@ func serve(pathDir, addr, stateDir, runDir, shellUser string, live bool) error {
 	}
 	defer watcher.Close()
 	log.Printf("exec watcher: %s", watcher.Source)
+	// Optional backup for the argv of commands too fast for /proc (see
+	// engine.ArgvProbe): without it, such commands may go unseen.
+	if err := watcher.StartArgvProbe(engine.LoginShell(path.ShellUser)); err != nil {
+		log.Printf("exec watcher: argv probe unavailable, sub-millisecond commands may be missed: %v", err)
+	} else {
+		log.Printf("exec watcher: argv probe on %s", watcher.ArgvTarget)
+	}
 
 	b := bus.New()
 	eng := engine.New(path, st, b, watcher, engine.Options{
