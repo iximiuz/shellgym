@@ -37,7 +37,8 @@ func newServeCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&pathDir, "path", "", "learning path directory (required)")
-	cmd.Flags().StringVar(&addr, "addr", ":63636", "web UI listen address")
+	cmd.Flags().StringVar(&addr, "addr", "127.0.0.1:63636",
+		"web UI listen address (loopback only by default; use :63636 to listen on every interface)")
 	cmd.Flags().StringVar(&stateDir, "state", "/var/lib/shellgym", "state directory")
 	cmd.Flags().StringVar(&runDir, "run", "/run/shellgym", "runtime directory (socket, check shims)")
 	cmd.Flags().StringVar(&shellUser, "user", "", "observed login user (default: from path.yaml)")

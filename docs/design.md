@@ -54,8 +54,9 @@ engine publishes events through and any number of UIs consume.
 
 The daemon CLI is a typical [spf13/cobra](https://github.com/spf13/cobra) app:
 
-- `shellgym serve --path <dir> [--addr :63636] [--state <dir>]
-  [--run <dir>] [--user <login>] [--live]` - the daemon
+- `shellgym serve --path <dir> [--addr 127.0.0.1:63636] [--state <dir>]
+  [--run <dir>] [--user <login>] [--live]` - the daemon (the web UI listens
+  on loopback only by default; `--addr :63636` opens it on every interface)
 - `shellgym solve --path <dir> [--api URL] [--unit <id>]` - acceptance
   driver: spawns a real interactive bash on a pty (indistinguishable from
   a student terminal), walks the path via the daemon's API, types each
@@ -282,4 +283,6 @@ they never bloat the progress document. The debug API reads them back.
 
 The daemon runs on a plain Linux host - e.g., a VM or an [iximiuz Labs Linux playground](https://labs.iximiuz.com/playgrounds?category=linux&filter=official) -
 as root, typically under systemd (`systemd-run --unit=shellgym --collect
-...`). The student uses any terminal on the box; the UI is on port 63636.
+...`). The student uses any terminal on the box; the UI is on port 63636,
+bound to loopback unless `--addr` says otherwise (a platform that proxies the
+UI from outside the box passes `--addr :63636`).

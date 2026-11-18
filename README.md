@@ -102,6 +102,10 @@ Once started, open the web UI in a browser and follow the learning path:
 open http://127.0.0.1:63636
 ```
 
+The web UI listens on `127.0.0.1` only. The daemon runs as root and its API has no authentication,
+so keep it that way on a host that others can reach. To use the UI of a remote box, forward the port
+(`ssh -L 63636:127.0.0.1:63636 <host>`). To listen on every interface, pass `--addr :63636`.
+
 ## Bring your own learning paths
 
 ShellGym defines a format, not a curriculum. The bundled [sample-linux-101](paths/sample-linux-101) path is the reference implementation.
