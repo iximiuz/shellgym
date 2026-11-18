@@ -28,12 +28,13 @@ func newServeCmd() *cobra.Command {
 		runDir    string
 		shellUser string
 		live      bool
+		origins   []string
 	)
 	cmd := &cobra.Command{
 		Use:   "serve",
 		Short: "Run the ShellGym daemon (web UI + validation engine)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return serve(pathDir, addr, stateDir, runDir, shellUser, live)
+			return serve(pathDir, addr, stateDir, runDir, shellUser, live, origins)
 		},
 	}
 	cmd.Flags().StringVar(&pathDir, "path", "", "learning path directory (required)")
@@ -44,11 +45,14 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().StringVar(&shellUser, "user", "", "observed login user (default: from path.yaml)")
 	cmd.Flags().BoolVar(&live, "live", false,
 		"student-facing mode: strip solve scripts from on-disk unit files and disable the debug API")
+	cmd.Flags().StringSliceVar(&origins, "allowed-origin", nil,
+		"extra origin allowed to call the API from a browser, e.g. https://gym.example.com "+
+			"(repeatable; needed only behind a proxy that rewrites the Host header)")
 	_ = cmd.MarkFlagRequired("path")
 	return cmd
 }
 
-func serve(pathDir, addr, stateDir, runDir, shellUser string, live bool) error {
+func serve(pathDir, addr, stateDir, runDir, shellUser string, live bool, origins []string) error {
 	if live {
 		n, err := content.StripSolveScripts(pathDir)
 		if err != nil {
@@ -130,7 +134,7 @@ func serve(pathDir, addr, stateDir, runDir, shellUser string, live bool) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	srv := webui.New(addr, eng, b, webui.Options{Live: live})
+	srv := webui.New(addr, eng, b, webui.Options{Live: live, AllowedOrigins: origins})
 	return srv.Run(ctx)
 }
 

@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -31,6 +32,11 @@ var assets embed.FS
 type Options struct {
 	// Live disables author-facing debug endpoints (student deployments).
 	Live bool
+	// AllowedOrigins lists extra origins ("https://gym.example.com") that may
+	// send state-changing requests and open the event stream, on top of the
+	// page's own origin. Needed only behind a proxy that rewrites the Host
+	// header, where the two no longer match.
+	AllowedOrigins []string
 }
 
 type Server struct {
@@ -68,8 +74,59 @@ func New(addr string, eng *engine.Engine, b *bus.Bus, opts ...Options) *Server {
 	return s
 }
 
+// Handler is the server's HTTP handler: the routes behind the cross-origin
+// guard.
+func (s *Server) Handler() http.Handler {
+	return s.guardOrigin(s.mux)
+}
+
+// guardOrigin refuses state-changing requests sent by another site's page
+// (CSRF): the API has no credentials a browser would have to attach, so a
+// page the student merely opens could otherwise reset or activate units.
+// Reads stay open - the browser's same-origin policy already keeps their
+// responses from a foreign page.
+func (s *Server) guardOrigin(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet, http.MethodHead, http.MethodOptions:
+		default:
+			if !s.originAllowed(r) {
+				http.Error(w, "cross-origin request refused", http.StatusForbidden)
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// originAllowed reports whether the request comes from the UI's own page (or
+// from a non-browser client). A browser always sends Origin on cross-origin
+// POSTs and WebSocket handshakes, so a request without one is curl, `shellgym
+// solve`, or the like. With one, it must name the host the request was sent
+// to - true for the UI served directly, port-forwarded, or behind a proxy
+// that keeps the Host header - or be listed in Options.AllowedOrigins.
+func (s *Server) originAllowed(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return true
+	}
+	u, err := url.Parse(origin)
+	if err != nil || u.Host == "" { // includes the opaque "null" origin
+		return false
+	}
+	if strings.EqualFold(u.Host, r.Host) {
+		return true
+	}
+	for _, allowed := range s.Opts.AllowedOrigins {
+		if strings.EqualFold(strings.TrimRight(allowed, "/"), origin) {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Server) Run(ctx context.Context) error {
-	srv := &http.Server{Addr: s.Addr, Handler: s.mux}
+	srv := &http.Server{Addr: s.Addr, Handler: s.Handler()}
 	go func() {
 		<-ctx.Done()
 		shCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -409,11 +466,10 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 
 // --- websocket --------------------------------------------------------------
 
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool { return true }, // playground proxies
-}
-
 func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
+	// The handshake is a GET, so guardOrigin lets it through; the same rule
+	// is applied here (a foreign page could otherwise read the live stream).
+	upgrader := websocket.Upgrader{CheckOrigin: s.originAllowed}
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return

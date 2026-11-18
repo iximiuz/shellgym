@@ -673,3 +673,84 @@ func TestVariantSelectionDisabledInLiveMode(t *testing.T) {
 		t.Fatalf("live mode read: %s", respG.Status)
 	}
 }
+
+// postFrom sends a POST with the given Origin header ("" = none, as curl or
+// `shellgym solve` would).
+func postFrom(t *testing.T, url, origin string) int {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodPost, url, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if origin != "" {
+		req.Header.Set("Origin", origin)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	return resp.StatusCode
+}
+
+func TestCrossOriginPostsAreRefused(t *testing.T) {
+	s, _, _ := testServer(t)
+	s.Opts.AllowedOrigins = []string{"https://gym.example.com/"}
+	ts := httptest.NewServer(s.Handler())
+	defer ts.Close()
+
+	seen := ts.URL + "/api/module-seen/mod"
+	for _, tc := range []struct {
+		name, origin string
+		want         int
+	}{
+		{"no origin (non-browser client)", "", 200},
+		{"the page's own origin", ts.URL, 200},
+		{"an allow-listed origin", "https://gym.example.com", 200},
+		{"another site", "https://evil.example.com", 403},
+		{"same host, other port", "http://127.0.0.1:1", 403},
+		{"opaque origin", "null", 403},
+	} {
+		if got := postFrom(t, seen, tc.origin); got != tc.want {
+			t.Errorf("%s: status = %d, want %d", tc.name, got, tc.want)
+		}
+	}
+
+	// A refused request never reaches the engine.
+	if got := postFrom(t, ts.URL+"/api/activate/mod/unit-a", "https://evil.example.com"); got != 403 {
+		t.Fatalf("cross-origin activate: status = %d, want 403", got)
+	}
+	var unit struct{ Status string }
+	resp, err := http.Get(ts.URL + "/api/unit/mod/unit-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if err := json.NewDecoder(resp.Body).Decode(&unit); err != nil {
+		t.Fatal(err)
+	}
+	if unit.Status == "active" {
+		t.Error("cross-origin activate reached the engine")
+	}
+}
+
+func TestWebSocketRefusesForeignOrigins(t *testing.T) {
+	s, _, _ := testServer(t)
+	ts := httptest.NewServer(s.Handler())
+	defer ts.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/api/events"
+	dial := func(origin string) error {
+		conn, _, err := websocket.DefaultDialer.Dial(wsURL, http.Header{"Origin": {origin}})
+		if err == nil {
+			conn.Close()
+		}
+		return err
+	}
+	if err := dial(ts.URL); err != nil {
+		t.Errorf("same-origin handshake: %v", err)
+	}
+	if err := dial("https://evil.example.com"); err == nil {
+		t.Error("foreign-origin handshake was accepted")
+	}
+}

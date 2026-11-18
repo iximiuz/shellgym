@@ -55,8 +55,11 @@ engine publishes events through and any number of UIs consume.
 The daemon CLI is a typical [spf13/cobra](https://github.com/spf13/cobra) app:
 
 - `shellgym serve --path <dir> [--addr 127.0.0.1:63636] [--state <dir>]
-  [--run <dir>] [--user <login>] [--live]` - the daemon (the web UI listens
-  on loopback only by default; `--addr :63636` opens it on every interface)
+  [--run <dir>] [--user <login>] [--live] [--allowed-origin <origin>]` - the
+  daemon (the web UI listens on loopback only by default; `--addr :63636`
+  opens it on every interface). POST requests and the event stream are
+  refused when a browser sends them from another origin than the UI's own
+  page; `--allowed-origin` adds one for a proxy that rewrites the Host header
 - `shellgym solve --path <dir> [--api URL] [--unit <id>]` - acceptance
   driver: spawns a real interactive bash on a pty (indistinguishable from
   a student terminal), walks the path via the daemon's API, types each
