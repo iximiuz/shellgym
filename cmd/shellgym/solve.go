@@ -31,18 +31,24 @@ func newSolveCmd() *cobra.Command {
 		pathDir    string
 		unitFilter string
 		timeout    time.Duration
+		tokenFile  string
 	)
 	cmd := &cobra.Command{
 		Use:   "solve",
 		Short: "Auto-solve a learning path through a real pty shell (acceptance test)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSolve(api, pathDir, unitFilter, timeout)
+			token, err := loadAuthToken(tokenFile)
+			if err != nil {
+				return err
+			}
+			return runSolve(api, token, pathDir, unitFilter, timeout)
 		},
 	}
 	cmd.Flags().StringVar(&api, "api", "http://localhost:63636", "daemon API base URL")
 	cmd.Flags().StringVar(&pathDir, "path", "", "learning path directory (source of solve scripts; required)")
 	cmd.Flags().StringVar(&unitFilter, "unit", "", "solve only this unit id (module/unit)")
 	cmd.Flags().DurationVar(&timeout, "timeout", 2*time.Minute, "per-unit completion timeout")
+	cmd.Flags().StringVar(&tokenFile, "auth-token-file", "", authTokenFileUsage)
 	_ = cmd.MarkFlagRequired("path")
 	return cmd
 }
@@ -214,10 +220,24 @@ func keyBytes(name string) ([]byte, error) {
 
 // --- daemon API client ------------------------------------------------------
 
-type apiClient struct{ base string }
+type apiClient struct {
+	base  string
+	token string // the daemon's auth token ("" = none)
+}
+
+func (c *apiClient) do(method, path string) (*http.Response, error) {
+	req, err := http.NewRequest(method, c.base+path, nil)
+	if err != nil {
+		return nil, err
+	}
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
+	return http.DefaultClient.Do(req)
+}
 
 func (c *apiClient) get(path string, out any) error {
-	resp, err := http.Get(c.base + path)
+	resp, err := c.do(http.MethodGet, path)
 	if err != nil {
 		return err
 	}
@@ -229,7 +249,7 @@ func (c *apiClient) get(path string, out any) error {
 }
 
 func (c *apiClient) post(path string) error {
-	resp, err := http.Post(c.base+path, "application/json", nil)
+	resp, err := c.do(http.MethodPost, path)
 	if err != nil {
 		return err
 	}
@@ -271,7 +291,7 @@ type apiUnit struct {
 
 // --- the walk ---------------------------------------------------------------
 
-func runSolve(api, pathDir, unitFilter string, timeout time.Duration) error {
+func runSolve(api, token, pathDir, unitFilter string, timeout time.Duration) error {
 	// Load WITHOUT distro/capability filtering: the daemon's /api/path is
 	// the authority on which units exist (its environment may differ from
 	// where solve runs, e.g. a containerized daemon).
@@ -289,7 +309,7 @@ func runSolve(api, pathDir, unitFilter string, timeout time.Duration) error {
 		return fmt.Errorf("student shell not responding: %w", err)
 	}
 
-	c := &apiClient{base: strings.TrimRight(api, "/")}
+	c := &apiClient{base: strings.TrimRight(api, "/"), token: token}
 	// Ask for hidden units too: every variant of the path gets solved in
 	// one walk, not just the one this attempt drew.
 	var pathState apiPath

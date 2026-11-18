@@ -37,6 +37,9 @@ type Options struct {
 	// page's own origin. Needed only behind a proxy that rewrites the Host
 	// header, where the two no longer match.
 	AllowedOrigins []string
+	// AuthToken, when set, is the shared secret every request must present
+	// (see requireAuth). Empty means no authentication.
+	AuthToken string
 }
 
 type Server struct {
@@ -75,9 +78,9 @@ func New(addr string, eng *engine.Engine, b *bus.Bus, opts ...Options) *Server {
 }
 
 // Handler is the server's HTTP handler: the routes behind the cross-origin
-// guard.
+// guard and the optional token check.
 func (s *Server) Handler() http.Handler {
-	return s.guardOrigin(s.mux)
+	return s.guardOrigin(s.requireAuth(s.mux))
 }
 
 // guardOrigin refuses state-changing requests sent by another site's page

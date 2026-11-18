@@ -3,6 +3,7 @@ package webui
 import (
 	"encoding/json"
 	"net/http"
+	"net/http/cookiejar"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -752,5 +753,108 @@ func TestWebSocketRefusesForeignOrigins(t *testing.T) {
 	}
 	if err := dial("https://evil.example.com"); err == nil {
 		t.Error("foreign-origin handshake was accepted")
+	}
+}
+
+func TestAuthToken(t *testing.T) {
+	s, _, _ := testServer(t)
+	s.Opts.AuthToken = "s3cret"
+	ts := httptest.NewServer(s.Handler())
+	defer ts.Close()
+
+	// A client that keeps cookies but does not follow redirects, to look at
+	// each step of the browser flow.
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	browser := &http.Client{Jar: jar, CheckRedirect: func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}}
+	status := func(c *http.Client, method, path, bearer string) (int, http.Header) {
+		t.Helper()
+		req, err := http.NewRequest(method, ts.URL+path, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if bearer != "" {
+			req.Header.Set("Authorization", "Bearer "+bearer)
+		}
+		resp, err := c.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		return resp.StatusCode, resp.Header
+	}
+
+	// Nothing is served without the token - pages, API, and assets alike.
+	for _, path := range []string{"/", "/api/status", "/api/path", "/unit-assets/mod/unit-a/pic.png"} {
+		if code, _ := status(browser, "GET", path, ""); code != 401 {
+			t.Errorf("GET %s without a token: status = %d, want 401", path, code)
+		}
+	}
+	if code, _ := status(browser, "POST", "/api/module-seen/mod", ""); code != 401 {
+		t.Errorf("POST without a token: status = %d, want 401", code)
+	}
+	if code, _ := status(browser, "GET", "/?token=wrong", ""); code != 401 {
+		t.Errorf("wrong token in the URL: status = %d, want 401", code)
+	}
+	if code, _ := status(browser, "GET", "/api/path", "wrong"); code != 401 {
+		t.Errorf("wrong bearer token: status = %d, want 401", code)
+	}
+
+	// Non-browser clients send the token as a bearer.
+	if code, _ := status(http.DefaultClient, "GET", "/api/path", "s3cret"); code != 200 {
+		t.Errorf("bearer token: status = %d, want 200", code)
+	}
+	if code, _ := status(http.DefaultClient, "POST", "/api/module-seen/mod", "s3cret"); code != 200 {
+		t.Errorf("bearer token POST: status = %d, want 200", code)
+	}
+
+	// The browser's first visit trades the token for a cookie, and is sent
+	// on to the same URL without the token.
+	code, hdr := status(browser, "GET", "/?token=s3cret&x=1", "")
+	if code != http.StatusSeeOther || hdr.Get("Location") != "/?x=1" {
+		t.Fatalf("token exchange: status = %d, Location = %q", code, hdr.Get("Location"))
+	}
+	if c := hdr.Get("Set-Cookie"); !strings.Contains(c, "HttpOnly") || !strings.Contains(c, "SameSite=Lax") ||
+		strings.Contains(c, "s3cret") {
+		t.Errorf("auth cookie: %q", c)
+	}
+	for _, path := range []string{"/", "/api/path"} {
+		if code, _ := status(browser, "GET", path, ""); code != 200 {
+			t.Errorf("GET %s with the cookie: status = %d, want 200", path, code)
+		}
+	}
+	if code, _ := status(browser, "POST", "/api/module-seen/mod", ""); code != 200 {
+		t.Errorf("POST with the cookie: status = %d, want 200", code)
+	}
+
+	// The event stream is behind the token too.
+	wsURL := "ws" + strings.TrimPrefix(ts.URL, "http") + "/api/events"
+	if conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil); err == nil {
+		conn.Close()
+		t.Error("websocket handshake without a token was accepted")
+	}
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, http.Header{"Authorization": {"Bearer s3cret"}})
+	if err != nil {
+		t.Fatalf("websocket handshake with the token: %v", err)
+	}
+	conn.Close()
+}
+
+func TestNoAuthByDefault(t *testing.T) {
+	s, _, _ := testServer(t)
+	ts := httptest.NewServer(s.Handler())
+	defer ts.Close()
+
+	resp, err := http.Get(ts.URL + "/api/path")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Errorf("status = %d, want 200", resp.StatusCode)
 	}
 }

@@ -102,9 +102,28 @@ Once started, open the web UI in a browser and follow the learning path:
 open http://127.0.0.1:63636
 ```
 
-The web UI listens on `127.0.0.1` only. The daemon runs as root and its API has no authentication,
-so keep it that way on a host that others can reach. To use the UI of a remote box, forward the port
-(`ssh -L 63636:127.0.0.1:63636 <host>`). To listen on every interface, pass `--addr :63636`.
+The web UI listens on `127.0.0.1` only, and by default its API has no authentication.
+To use the UI of a remote box, forward the port (`ssh -L 63636:127.0.0.1:63636 <host>`).
+
+> [!CAUTION]
+> Never run the daemon on `0.0.0.0` (`--addr :63636` or `--addr 0.0.0.0:63636`) without an auth token
+> on a host that other people can reach, such as a cloud VM with a public IP or a machine on a shared network.
+> The daemon runs as root, and without a token anyone who can connect to the port can control the gym.
+> The daemon logs a warning at startup in this setup, but it still starts.
+
+To listen on every interface, pass `--addr :63636` and protect the UI with a token:
+
+```sh
+openssl rand -hex 16 | sudo tee /etc/shellgym.token >/dev/null
+sudo chmod 600 /etc/shellgym.token
+
+sudo ./shellgym serve --path "$PWD/paths/sample-linux-101" --user $USER \
+    --addr :63636 --auth-token-file /etc/shellgym.token
+```
+
+Then open `http://<host>:63636/?token=<token>` once. The browser keeps a cookie from there on.
+The `SHELLGYM_AUTH_TOKEN` environment variable works in place of the file, and `shellgym solve` takes the same two.
+The token travels in clear text over plain HTTP, so on an untrusted network put a TLS proxy in front or stay with the SSH tunnel.
 
 ## Bring your own learning paths
 

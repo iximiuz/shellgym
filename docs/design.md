@@ -55,12 +55,18 @@ engine publishes events through and any number of UIs consume.
 The daemon CLI is a typical [spf13/cobra](https://github.com/spf13/cobra) app:
 
 - `shellgym serve --path <dir> [--addr 127.0.0.1:63636] [--state <dir>]
-  [--run <dir>] [--user <login>] [--live] [--allowed-origin <origin>]` - the
-  daemon (the web UI listens on loopback only by default; `--addr :63636`
-  opens it on every interface). POST requests and the event stream are
-  refused when a browser sends them from another origin than the UI's own
-  page; `--allowed-origin` adds one for a proxy that rewrites the Host header
-- `shellgym solve --path <dir> [--api URL] [--unit <id>]` - acceptance
+  [--run <dir>] [--user <login>] [--live] [--allowed-origin <origin>]
+  [--auth-token-file <file>]` - the daemon (the web UI listens on loopback
+  only by default; `--addr :63636` opens it on every interface). POST
+  requests and the event stream are refused when a browser sends them from
+  another origin than the UI's own page; `--allowed-origin` adds one for a
+  proxy that rewrites the Host header. With a token (`--auth-token-file` or
+  `SHELLGYM_AUTH_TOKEN`), every route requires it: as `?token=` on the
+  browser's first visit (traded for a cookie) or as an `Authorization:
+  Bearer` header. Without one, the daemon logs a warning when it listens
+  beyond loopback
+- `shellgym solve --path <dir> [--api URL] [--unit <id>]
+  [--auth-token-file <file>]` - acceptance
   driver: spawns a real interactive bash on a pty (indistinguishable from
   a student terminal), walks the path via the daemon's API, types each
   task's `solve:` lines, reports PASS/FAIL per unit

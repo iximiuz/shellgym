@@ -29,12 +29,13 @@ func newServeCmd() *cobra.Command {
 		shellUser string
 		live      bool
 		origins   []string
+		tokenFile string
 	)
 	cmd := &cobra.Command{
 		Use:   "serve",
 		Short: "Run the ShellGym daemon (web UI + validation engine)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return serve(pathDir, addr, stateDir, runDir, shellUser, live, origins)
+			return serve(pathDir, addr, stateDir, runDir, shellUser, live, origins, tokenFile)
 		},
 	}
 	cmd.Flags().StringVar(&pathDir, "path", "", "learning path directory (required)")
@@ -48,11 +49,27 @@ func newServeCmd() *cobra.Command {
 	cmd.Flags().StringSliceVar(&origins, "allowed-origin", nil,
 		"extra origin allowed to call the API from a browser, e.g. https://gym.example.com "+
 			"(repeatable; needed only behind a proxy that rewrites the Host header)")
+	cmd.Flags().StringVar(&tokenFile, "auth-token-file", "", authTokenFileUsage+
+		"; when set, the web UI and its API require the token")
 	_ = cmd.MarkFlagRequired("path")
 	return cmd
 }
 
-func serve(pathDir, addr, stateDir, runDir, shellUser string, live bool, origins []string) error {
+func serve(pathDir, addr, stateDir, runDir, shellUser string, live bool, origins []string, tokenFile string) error {
+	token, err := loadAuthToken(tokenFile)
+	if err != nil {
+		return err
+	}
+	switch {
+	case token != "":
+		log.Printf("auth: a token is required; open the web UI as /?token=<token>")
+	case !isLoopbackAddr(addr):
+		log.Printf("WARNING: the web UI listens on %s without authentication. Anyone who can reach "+
+			"this port can reset and activate units, which runs their init scripts as root. "+
+			"Listen on 127.0.0.1 instead, or set an auth token (--auth-token-file or %s).",
+			addr, authTokenEnv)
+	}
+
 	if live {
 		n, err := content.StripSolveScripts(pathDir)
 		if err != nil {
@@ -134,7 +151,7 @@ func serve(pathDir, addr, stateDir, runDir, shellUser string, live bool, origins
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	srv := webui.New(addr, eng, b, webui.Options{Live: live, AllowedOrigins: origins})
+	srv := webui.New(addr, eng, b, webui.Options{Live: live, AllowedOrigins: origins, AuthToken: token})
 	return srv.Run(ctx)
 }
 
