@@ -51,7 +51,18 @@ tasks:
       fi
       T=' -[a-zA-Z0-9]*t[a-zA-Z0-9]* '
       TL=' --sort=time '
-      if [[ " $ARGV " =~ $T ]] || [[ " $ARGV " =~ $TL ]]; then exit 0; fi
+      R=' -[a-zA-Z0-9]*r[a-zA-Z0-9]* '
+      RL=' --reverse '
+      if [[ " $ARGV " =~ $T ]] || [[ " $ARGV " =~ $TL ]]; then
+        # The next task judges only the listings that follow this one,
+        # unless this one is reversed already.
+        if [[ " $ARGV " =~ $R ]] || [[ " $ARGV " =~ $RL ]]; then
+          set_var NEWEST_SEQ 0
+        else
+          set_var NEWEST_SEQ "$(event_seq)"
+        fi
+        exit 0
+      fi
       if [ "${GYM_CHECK_ATTEMPT:-1}" -gt 2 ]; then
         hint_exit "That listing is still sorted by name. The option that sorts by modification time is -t, so the command is ls -lt."
       fi
@@ -74,7 +85,7 @@ tasks:
     timeout: 60
     check: |
       D="$GYM_USER_HOME/projects/backups"
-      ARGV=$(wait_exec --latest '(^|/)ls( +\S+)*$') || exit 1
+      ARGV=$(wait_exec --latest --after "${NEWEST_SEQ:-0}" '(^|/)ls( +\S+)*$') || exit 1
       set -f; set -- $ARGV; shift
       CWD=$(shell_cwd 2>/dev/null || true)
       N=0
